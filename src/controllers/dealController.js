@@ -1,0 +1,127 @@
+const Deal =
+require("../../models/Deal");
+
+const Message =
+require("../../models/Message");
+
+
+
+// GET ALL DEALS
+exports.getAllDeals =
+async (req, res) => {
+
+  try {
+
+    const deals =
+    await Deal.find()
+
+    .populate(
+      "buyer",
+      "fullName email"
+    )
+
+    .populate(
+      "seller",
+      "fullName email"
+    )
+
+    .populate(
+      "product",
+      "title"
+    );
+
+
+
+    res.status(200).json(
+      deals
+    );
+
+  } catch (error) {
+
+    res.status(500).json({
+      message:
+      error.message,
+    });
+
+  }
+};
+
+
+
+// GET MESSAGES
+exports.getDealMessages =
+async (req, res) => {
+
+  try {
+
+    const messages =
+    await Message.find({
+
+      deal:
+      req.params.id,
+
+    })
+
+    .populate(
+      "sender",
+      "fullName"
+    )
+
+    .sort({
+      createdAt: 1,
+    });
+
+
+
+    res.status(200).json(
+      messages
+    );
+
+  } catch (error) {
+
+    res.status(500).json({
+      message:
+      error.message,
+    });
+
+  }
+};
+
+
+
+// ACCEPT DEAL
+exports.acceptDeal =
+async (req, res) => {
+
+  try {
+
+    const deal =
+    await Deal.findByIdAndUpdate(
+
+      req.params.id,
+
+      {
+        status:
+        "accepted",
+      },
+
+      {
+        new: true,
+      }
+    );
+
+
+
+    res.status(200).json(
+      deal
+    );
+
+  } catch (error) {
+
+    res.status(500).json({
+      message:
+      error.message,
+    });
+
+  }
+};

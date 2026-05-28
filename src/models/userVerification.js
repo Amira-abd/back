@@ -1,0 +1,51 @@
+import mongoose from "mongoose"; // التعديل 1: تحويل الـ require لـ import
+
+const verificationSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+
+  nationalIdNumber: {
+    type: String,
+    required: true,
+  },
+
+  idImage: {
+    type: String,
+    required: true,
+  },
+
+  selfieImage: {
+    type: String,
+  },
+
+  otpVerified: {
+    type: Boolean,
+    default: false,
+  },
+
+  reviewStatus: {
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+    default: "pending",
+  },
+
+  rejectionReason: {
+    type: String,
+  },
+
+  reviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  },
+
+  submittedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+// التعديل 2: تحويل التصدير لـ export default
+const Verification = mongoose.model("Verification", verificationSchema);
+export default Verification;

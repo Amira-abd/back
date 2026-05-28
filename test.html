@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Socket Test</title>
+</head>
+
+<body>
+
+  <input
+    id="messageInput"
+    placeholder="Write message"
+  />
+
+  <button onclick="sendMessage()">
+    Send
+  </button>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+  <script>
+
+    const socket =
+    io("http://localhost:5000");
+
+
+
+    socket.on(
+      "connect",
+      () => {
+
+        console.log(
+          "Connected"
+        );
+
+
+
+        socket.emit(
+          "joinDeal",
+          "6a116497cd8501e621688daf"
+        );
+
+      }
+    );
+
+
+
+    socket.on(
+      "receiveMessage",
+      (message) => {
+
+        console.log(
+          "New Message:",
+          message
+        );
+
+      }
+    );
+
+
+
+    function sendMessage() {
+
+      const text =
+      document.getElementById(
+        "messageInput"
+      ).value;
+
+
+
+      socket.emit(
+        "sendMessage",
+        {
+
+          dealId:
+          "6a116497cd8501e621688daf",
+
+          senderId:
+          "6a1060235b5f69d8c3036423",
+
+          text,
+
+        }
+      );
+
+    }
+
+  </script>
+
+</body>
+
+</html>
+
+ي
