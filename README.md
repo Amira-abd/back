@@ -22,9 +22,14 @@
 * **`jsonwebtoken` (JWT)**: لإنشاء وتوثيق الـ Tokens الخاصة بصلاحيات تسجيل الدخول وحماية المسارات.
 * **`socket.io`**: لبناء سيرفر الـ WebSockets لإدارة غرف الشات اللحظية بين البائع والمشتري.
 * **`node-cron`**: لتشغيل مهام مؤتمتة وتلقائية في خلفية السيرفر (مثل فحص عروض RFQ منتهية الصلاحية يومياً).
-* **`google-auth-library`**: 
 
+
+* **`google-auth-library`**: 
+## 📚 API Documentation
+يمكنكم الاطلاع على توثيق الـ APIs وتجربتها مباشرة عبر المتصفح:
+**رابط التوثيق:** [https://back-testing-12f1.up.railway.app/api-docs](https://back-testing-12f1.up.railway.app/api-docs)
 ## 🚀 طريقة التشغيل لأعضاء الفريق (Getting Started)
+
 
 1. **تثبيت الاعتماديات:**
    ```bash

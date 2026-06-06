@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import http from 'http';
+import swaggerUi from 'swagger-ui-express';
+import swaggerJsdoc from 'swagger-jsdoc';
 import { Server } from 'socket.io'; // 1. تصحيح استيراد الـ Server
 import connectDB from './src/config/db.js'; 
 import authRoutes from './src/routes/authRoutes.js';
@@ -36,6 +38,27 @@ const io = new Server(server, {
     origin: "*",
   },
 });
+
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'My API Documentation',
+      version: '1.0.0',
+      description: 'API documentation for my project',
+    },
+    servers: [
+      {
+        url: 'https://your-railway-url.up.railway.app', // رابط السيرفر اللي طلعناه من Railway
+      },
+    ],
+  },
+  apis: ['./routes/*.js'], // المسار اللي فيه الـ Routes بتاعتك
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 
 // ROUTES
 app.use("/api/auth", authRoutes); // 4. تفعيل مسار المصادقة
