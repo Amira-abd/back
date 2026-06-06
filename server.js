@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import http from 'http';
 import { Server } from 'socket.io'; // 1. تصحيح استيراد الـ Server
 import connectDB from './src/config/db.js'; 
@@ -13,8 +14,7 @@ import adminRoutes from './src/routes/adminRoutes.js';
 // import dealRoutes from './src/routes/dealRoutes.js';
 
 // CONFIG
-dotenv.config();
-
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 // CONNECT DATABASE
 connectDB();
 

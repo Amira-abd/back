@@ -13,7 +13,7 @@ const userSchema = new mongoose.Schema({
     unique: true,
     sparse: true // بيسمح إن الحقل يكون فاضي لليوزر العادي ومكررش ليوزر جوجل
     } ,
-    role: { type: String, enum: ['Buyer', 'Seller', 'Both'], required: [true, 'يجب تحديد نوع الحساب'] },
+    role: { type: String, enum: ['Buyer', 'Seller', 'Both', 'Admin'], required: [true, 'يجب تحديد نوع الحساب'] },
   is_verified: { type: Boolean, default: false },
   verification_status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   status: { type: String, enum: ['active', 'inactive', 'suspended'], default: 'active' },

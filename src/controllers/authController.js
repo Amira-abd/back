@@ -1,9 +1,23 @@
+import dotenv from 'dotenv';
+import path from 'path';
+
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+
 import { OAuth2Client } from 'google-auth-library';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// دالة مساعدة لإنشاء الـ Token لمنع تكرار الكود
+const createEcoToken = (user) => {
+  return jwt.sign(
+    { id: user._id, role: user.role },
+    process.env.JWT_SECRET || 'EcoLink_Fallback_Secret_Key_2026_#@!', 
+    { expiresIn: process.env.JWT_EXPIRES_IN || '30d' }
+  );
+};
 
 export const signup = async (req, res) => {
   try {
@@ -15,23 +29,28 @@ export const signup = async (req, res) => {
     let google_id = undefined;
     let hashedPassword = undefined;
 
+    // 🔒 [تعديل الأمان]: حماية الـ Admin ومنع أي مستخدم من تسجيل حساب آدمن جديد من الـ Form
+    if (role === 'Admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'غير مسموح بإنشاء حسابات إدارة جديدة من هنا نهائياً.'
+      });
+    }
+
     // 2. الفحص الذكي: هل التسجيل يتم عبر جوجل؟
     if (token) {
-      // التحقق من توكن جوجل وجلب البيانات من سيرفراتهم
       const ticket = await client.verifyIdToken({
         idToken: token,
         audience: process.env.GOOGLE_CLIENT_ID,
       });
       const payload = ticket.getPayload();
       
-      // إعادة تعيين البيانات بناءً على حساب جوجل الموثق
       google_id = payload.sub;
       email = payload.email;
-      full_name = payload.name; // بيجيب الاسم بالكامل من حساب جوجل تلقائياً
+      full_name = payload.name;
 
     } else {
       // 3. في حالة التسجيل بالفورم التقليدي
-      // التأكد أولاً أن المستخدم أدخل إيميل وباسورد واسم بالكامل
       if (!email || !password || !full_name) {
         return res.status(400).json({ 
           success: false, 
@@ -47,11 +66,13 @@ export const signup = async (req, res) => {
     // 4. التحقق من عدم تكرار الإيميل في قاعدة البيانات في الحالتين
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      // لو مسجل بجوجل قبل كده وجاي يسجل تاني
       if (token && existingUser.google_id === google_id) {
+         // توليد توكن في حالة الدخول المكرر بجوجل
+         const ecoToken = createEcoToken(existingUser);
          return res.status(200).json({
            success: true,
            message: 'هذا الحساب مسجل بجوجل بالفعل، تم تسجيل الدخول بنجاح.',
+           token: ecoToken,
            user: existingUser
          });
       }
@@ -61,24 +82,27 @@ export const signup = async (req, res) => {
       });
     }
 
-    // 5. إنشاء المستخدم الجديد وحفظ البيانات المشتركة والخاصة بكل طريقة
+    // 5. إنشاء المستخدم الجديد
     const newUser = new User({
       full_name,
       email,
-      phone, // بيكون إجباري في الفورم، وفي حالة جوجل بتبعتيه برضه من الفورم
-      password_hash: hashedPassword, // هيكون null لو شغال بجوجل
-      google_id, // هيكون undefined لو شغال بالفورم العادي
+      phone, 
+      password_hash: hashedPassword, 
+      google_id, 
       role,
       city,
-      address,
-      // الحقول دي بتاخد الـ default بتاعها تلقائياً (pending, false, active)
+      address
     });
 
     await newUser.save();
 
+    // 🔑 [تعديل ذكي]: توليد التوكن فوراً عشان يدخل علطول بدون ريكويست login منفصل
+    const ecoToken = createEcoToken(newUser);
+
     res.status(201).json({
       success: true,
-      message: 'تم إنشاء الحساب بنجاح، وهو بانتظار مراجعة الإدارة 🎉',
+      message: 'تم إنشاء الحساب بنجاح 🎉',
+      token: ecoToken, // 👈 التوكن هيطلع هنا علطول في الـ Register
       user: {
         id: newUser._id,
         full_name: newUser.full_name,
@@ -104,7 +128,6 @@ export const login = async (req, res) => {
 
     // 1. الفحص الذكي: هل تسجيل الدخول بـ Google؟
     if (token) {
-      // التحقق من توكن جوجل
       const ticket = await client.verifyIdToken({
         idToken: token,
         audience: process.env.GOOGLE_CLIENT_ID,
@@ -112,7 +135,6 @@ export const login = async (req, res) => {
       const payload = ticket.getPayload();
       const google_id = payload.sub;
 
-      // البحث عن اليوزر برقم تعريف جوجل
       user = await User.findOne({ google_id });
       if (!user) {
         return res.status(404).json({ 
@@ -126,13 +148,11 @@ export const login = async (req, res) => {
         return res.status(400).json({ success: false, message: 'يرجى إدخال البريد الإلكتروني وكلمة المرور' });
       }
 
-      // البحث عن اليوزر بالإيميل
       user = await User.findOne({ email: inputEmail.toLowerCase() });
       if (!user) {
         return res.status(401).json({ success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
       }
 
-      // لو اليوزر ده مسجل أصلاً بجوجل وجاي يدخل بباسورد عادي وهو معندوش باسورد في السيستم
       if (!user.password_hash) {
         return res.status(400).json({ 
           success: false, 
@@ -140,7 +160,6 @@ export const login = async (req, res) => {
         });
       }
 
-      // مقارنة الباسورد المكتوب بالباسورد المشفر في الداتابيز
       const isPasswordCorrect = await bcrypt.compare(password, user.password_hash);
       if (!isPasswordCorrect) {
         return res.status(401).json({ success: false, message: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
@@ -152,21 +171,14 @@ export const login = async (req, res) => {
       return res.status(403).json({ success: false, message: 'تم حظر هذا الحساب من قبل الإدارة.' });
     }
     
-    // اختياري: لو حابة تمنعيهم يدخلوا إلا لما الأدمن يوافق (verification_status === 'approved') 
-    // تقدري تضيفي الفحص ده هنا بناءً على رغبة التيم في الـ flow بتاع الأبليكيشن.
-
     // 4. إنشاء الـ JWT Token الخاص بـ EcoLink
-    const ecoToken = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
-    );
+    const ecoToken = createEcoToken(user);
 
-    // 5. إرسال الاستجابة بنجاح ومظهر الـ Token
+    // 5. إرسال الاستجابة بنجاح
     res.status(200).json({
       success: true,
       message: 'تم تسجيل الدخول بنجاح 🎉',
-      token: ecoToken, // الـ Token ده الفرونت إند هيستخدمه في كل الطلبات الجاية
+      token: ecoToken, 
       user: {
         id: user._id,
         full_name: user.full_name,
@@ -178,10 +190,11 @@ export const login = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("Login Error Details:", error); 
     res.status(500).json({
       success: false,
       message: 'حدث خطأ أثناء عملية تسجيل الدخول',
-      error: error.message
+      error: error.message 
     });
   }
 };
