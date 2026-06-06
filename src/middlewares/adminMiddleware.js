@@ -2,7 +2,7 @@ import User from "../models/User.js"; // التعديل 1: تحويل الـ req
 
 const adminMiddleware = async (req, res, next) => {
   try {
-    if (!req.user || req.user.role !== "admin") { // زيادة أمان: التأكد إن req.user موجود أصلاً
+    if (!req.user || req.user.role !== "Admin") { // زيادة أمان: التأكد إن req.user موجود أصلاً
       return res.status(403).json({
         message: "Access denied, admin only",
       });

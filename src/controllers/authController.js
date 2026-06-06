@@ -14,7 +14,7 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const createEcoToken = (user) => {
   return jwt.sign(
     { id: user._id, role: user.role },
-    process.env.JWT_SECRET || 'EcoLink_Fallback_Secret_Key_2026_#@!', 
+    process.env.JWT_SECRET || 'EcoLinkBackEndSecretKey2026@#$!', 
     { expiresIn: process.env.JWT_EXPIRES_IN || '30d' }
   );
 };
@@ -29,7 +29,7 @@ export const signup = async (req, res) => {
     let google_id = undefined;
     let hashedPassword = undefined;
 
-    // 🔒 [تعديل الأمان]: حماية الـ Admin ومنع أي مستخدم من تسجيل حساب آدمن جديد من الـ Form
+    //  [تعديل الأمان]: حماية الـ Admin ومنع أي مستخدم من تسجيل حساب آدمن جديد من الـ Form
     if (role === 'Admin') {
       return res.status(403).json({
         success: false,
@@ -101,8 +101,8 @@ export const signup = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'تم إنشاء الحساب بنجاح 🎉',
-      token: ecoToken, // 👈 التوكن هيطلع هنا علطول في الـ Register
+      message: 'تم إنشاء الحساب بنجاح ',
+      token: ecoToken, //  التوكن هيطلع هنا علطول في الـ Register
       user: {
         id: newUser._id,
         full_name: newUser.full_name,
@@ -177,7 +177,7 @@ export const login = async (req, res) => {
     // 5. إرسال الاستجابة بنجاح
     res.status(200).json({
       success: true,
-      message: 'تم تسجيل الدخول بنجاح 🎉',
+      message: 'تم تسجيل الدخول بنجاح ',
       token: ecoToken, 
       user: {
         id: user._id,
