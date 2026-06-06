@@ -1,7 +1,7 @@
-const Rfq = require('../models/Rfq')
-const RfqAttachment = require('../models/RfqAttachment')
-const RfqOffer = require('../models/RfqOffer')
-const Order = require('../models/Order')
+import Rfq from '../models/Rfq.js';
+import RfqAttachment from '../models/RfqAttachment.js';
+import RfqOffer from '../models/RfqOffer.js';
+// import Order from '../models/Order.js';
 
 const getAllRfqs = async (req, res) => {
   try {
@@ -60,34 +60,68 @@ const getRfqById = async (req, res) => {
   }
 }
 
+// const createRfq = async (req, res) => {
+//   try {
+//     const { title, description, category_id, quantity, unit, location, attachments } = req.body
+
+//     const rfq = await Rfq.create({
+//       buyer_id: req.user._id,
+//       title,
+//       description,
+//       category_id,
+//       quantity,
+//       unit,
+//       location,
+//     })
+
+//     if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+//       const attachmentDocs = attachments.map((file_url) => ({
+//         rfq_id: rfq._id,
+//         file_url,
+//       }))
+//       await RfqAttachment.insertMany(attachmentDocs)
+//     }
+
+//     res.status(201).json({ message: 'RFQ created successfully', data: rfq })
+//   } catch (err) {
+//     res.status(500).json({ message: 'Server error', error: err.message })
+//   }
+// }
 const createRfq = async (req, res) => {
   try {
-    const { title, description, category_id, quantity, unit, location, attachments } = req.body
+    // 1. نتأكد إن الـ Middleware اللي قبلنا (protect) مرر بيانات المستخدم
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'User not authenticated or ID missing' });
+    }
 
+    const { title, description, category_id, quantity, unit, location, attachments } = req.body;
+
+    // 2. استخدام req.user._id عشان نملأ الـ buyer_id
     const rfq = await Rfq.create({
-      buyer_id: req.user._id,
+      buyer_id: req.user._id, 
       title,
       description,
       category_id,
       quantity,
       unit,
       location,
-    })
+    });
 
+    // 3. معالجة المرفقات (Attachments)
     if (attachments && Array.isArray(attachments) && attachments.length > 0) {
       const attachmentDocs = attachments.map((file_url) => ({
         rfq_id: rfq._id,
         file_url,
-      }))
-      await RfqAttachment.insertMany(attachmentDocs)
+      }));
+      await RfqAttachment.insertMany(attachmentDocs);
     }
 
-    res.status(201).json({ message: 'RFQ created successfully', data: rfq })
+    res.status(201).json({ message: 'RFQ created successfully', data: rfq });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message })
+    // لو فيه أي خطأ في الـ Validation (زي اللي ظهرلك)، هيظهر هنا
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
-}
-
+};
 const updateRfq = async (req, res) => {
   try {
     const rfq = await Rfq.findById(req.params.id)
@@ -221,15 +255,15 @@ const acceptOffer = async (req, res) => {
     rfq.status = 'closed'
     await rfq.save()
 
-    const order = await Order.create({
-      buyer_id: rfq.buyer_id,
-      seller_id: offer.seller_id,
-      rfq_offer_id: offer._id,
-      quantity: rfq.quantity,
-      total_price: offer.price,
-      order_status: 'pending',
-      payment_status: 'unpaid',
-    })
+    // const order = await Order.create({
+    //   buyer_id: rfq.buyer_id,
+    //   seller_id: offer.seller_id,
+    //   rfq_offer_id: offer._id,
+    //   quantity: rfq.quantity,
+    //   total_price: offer.price,
+    //   order_status: 'pending',
+    //   payment_status: 'unpaid',
+    // })
 
     res.json({ message: 'Offer accepted successfully', data: { offer, order } })
   } catch (err) {
@@ -280,7 +314,8 @@ const getMyOffers = async (req, res) => {
   }
 }
 
-module.exports = {
+// التصدير بنظام الـ ES Modules ليتوافق مع الـ Routes بنجاح
+export {
   getAllRfqs,
   getRfqById,
   createRfq,
@@ -292,4 +327,4 @@ module.exports = {
   acceptOffer,
   rejectOffer,
   getMyOffers,
-}
+};

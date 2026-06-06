@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose';
 
 const rfqSchema = new mongoose.Schema({
   buyer_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -9,11 +9,13 @@ const rfqSchema = new mongoose.Schema({
   unit: { type: String, required: true, trim: true },
   location: { type: String, trim: true },
   status: { type: String, enum: ['open', 'closed', 'cancelled'], default: 'open' },
-}, { timestamps: { createdAt: 'created_at', updatedAt: false } })
+}, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 
-rfqSchema.index({ buyer_id: 1 })
-rfqSchema.index({ category_id: 1 })
-rfqSchema.index({ status: 1 })
-rfqSchema.index({ created_at: -1 })
+// الـ Indexes ممتازة جداً للأداء وسرعة البحث
+rfqSchema.index({ buyer_id: 1 });
+rfqSchema.index({ category_id: 1 });
+rfqSchema.index({ status: 1 });
+rfqSchema.index({ created_at: -1 });
 
-module.exports = mongoose.model('Rfq', rfqSchema)
+const Rfq = mongoose.model('Rfq', rfqSchema);
+export default Rfq;

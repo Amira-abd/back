@@ -32,62 +32,40 @@
 
 // module.exports = { protect, requireVerifiedSeller }
 import jwt from "jsonwebtoken";
+import User from "../models/User.js"; // لازم نستورد الموديل عشان نبحث في قاعدة البيانات
 
-
-const authMiddleware = (
-  req,
-  res,
-  next
-) => {
-
+export const protect = async (req, res, next) => { // ضفنا async هنا
   try {
+    const authHeader = req.headers.authorization;
 
-    // GET AUTH HEADER
-    const authHeader =
-      req.headers.authorization;
-
-    // CHECK TOKEN EXISTS
-    if (
-      !authHeader ||
-      !authHeader.startsWith("Bearer ")
-    ) {
-
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
-
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    // EXTRACT TOKEN
-    const token =
-      authHeader.split(" ")[1];
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // VERIFY TOKEN
-    const decoded =
-      jwt.verify(
-        token,
-        process.env.JWT_SECRET
-      );
+    // التعديل المهم هنا: البحث عن المستخدم في قاعدة البيانات وتخزينه في req.user
+    const user = await User.findById(decoded.id).select("-password");
+    
+    if (!user) {
+      return res.status(401).json({ success: false, message: "User not found" });
+    }
 
-    // SAVE USER DATA
-    req.user = decoded;
-
-    // CONTINUE
+    req.user = user; // دلوقت الـ req.user بقى فيه بيانات المستخدم كاملة
     next();
-
   } catch (error) {
-
-    return res.status(401).json({
-      success: false,
-      message: "Invalid token",
-    });
-
+    return res.status(401).json({ success: false, message: "Invalid token" });
   }
 };
 
-
-
-export default authMiddleware
-
-  
+export const requireVerifiedSeller = (req, res, next) => {
+  // عدلتها برضه عشان تتماشى مع الـ fields الحقيقية في الـ Schema بتاعك
+  if (!req.user || (req.user.role !== 'seller' && req.user.verification_status !== 'approved')) {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Only verified sellers can perform this action.",
+    });
+  }
+  next();
+};

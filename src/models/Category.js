@@ -1,8 +1,20 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose';
 
 const categorySchema = new mongoose.Schema({
-  name: { type: String, required: true, trim: true, unique: true },
-  description: { type: String, trim: true },
-}, { timestamps: true })
+  name: { 
+    type: String, 
+    required: true, 
+    trim: true, 
+    unique: true 
+  },
+  description: { 
+    type: String, 
+    trim: true 
+  },
+}, { 
+  timestamps: true // ده هيعمل لكِ حقول created_at و updated_at تلقائياً
+});
 
-module.exports = mongoose.model('Category', categorySchema)
+// التصدير بنظام ES6 النظيف
+const Category = mongoose.model('Category', categorySchema);
+export default Category;

@@ -2,33 +2,33 @@ import express from "express";
 const router = express.Router();
 
 import * as adminController from "../controllers/adminController.js";
-import  authMiddleware  from "../middlewares/authMiddleware.js";
+import { protect } from "../middlewares/authMiddleware.js"; // 👈 التعديل هنا
 import adminMiddleware from "../middlewares/adminMiddleware.js";
 
 router.get(
   "/verifications",
-  authMiddleware,
+  protect, 
   adminMiddleware,
   adminController.getAllVerifications
 );
 
 router.get(
   "/verifications/:id",
-  authMiddleware,
+  protect,
   adminMiddleware,
   adminController.getVerificationDetails
 );
 
 router.patch(
   "/verifications/:id/approve",
-  authMiddleware,
+  protect, 
   adminMiddleware,
   adminController.approveVerification
 );
 
 router.patch(
   "/verifications/:id/reject",
-  authMiddleware,
+  protect, 
   adminMiddleware,
   adminController.rejectVerification
 );

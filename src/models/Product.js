@@ -1,4 +1,4 @@
-const mongoose = require('mongoose')
+import mongoose from 'mongoose';
 
 const productSchema = new mongoose.Schema({
   seller_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -20,4 +20,5 @@ productSchema.index({ status: 1 })
 productSchema.index({ city: 1 })
 productSchema.index({ price: 1 })
 
-module.exports = mongoose.model('Product', productSchema)
+const Product = mongoose.model('Product', productSchema);
+export default Product;

@@ -7,6 +7,8 @@ import { Server } from 'socket.io'; // 1. تصحيح استيراد الـ Serve
 import connectDB from './src/config/db.js'; 
 import authRoutes from './src/routes/authRoutes.js';
 import adminRoutes from './src/routes/adminRoutes.js';
+import categoryRoutes from './src/routes/categoryRoutes.js';
+import clientRoutes from './src/routes/clientRoutes.js';
 // import Message from './src/models/Message.js'; // 2. نقل استيراد الموديل هنا بدلاً من require
 
 // فك التشفير عن المسارات لو قمت بإنشاء ملفاتها مستقبلاً
@@ -38,6 +40,8 @@ const io = new Server(server, {
 // ROUTES
 app.use("/api/auth", authRoutes); // 4. تفعيل مسار المصادقة
 app.use("/api/admin", adminRoutes);
+app.use("/api", categoryRoutes); 
+app.use("/api", clientRoutes);
 
 // 5. إذا كانت هذه الملفات غير موجودة بعد، اترك هذه الأسطر ممسوحة (Commented) لحين إنشائها:
 // app.use("/api/admin/inventory", inventoryRoutes);
