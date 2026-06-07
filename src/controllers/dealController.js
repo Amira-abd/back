@@ -1,127 +1,58 @@
-const Deal =
-require("../../models/Deal");
-
-const Message =
-require("../../models/Message");
-
-
+import Deal from ".././models/Deal.js";
+import Message from ".././models/Message.js";
 
 // GET ALL DEALS
-exports.getAllDeals =
-async (req, res) => {
-
+export const getAllDeals = async (req, res) => {
   try {
+    const deals = await Deal.find()
+      .populate("buyer", "fullName email")
+      .populate("seller", "fullName email")
+      .populate("product", "title");
 
-    const deals =
-    await Deal.find()
-
-    .populate(
-      "buyer",
-      "fullName email"
-    )
-
-    .populate(
-      "seller",
-      "fullName email"
-    )
-
-    .populate(
-      "product",
-      "title"
-    );
-
-
-
-    res.status(200).json(
-      deals
-    );
-
+    res.status(200).json(deals);
   } catch (error) {
-
     res.status(500).json({
-      message:
-      error.message,
+      message: error.message,
     });
-
   }
 };
-
-
 
 // GET MESSAGES
-exports.getDealMessages =
-async (req, res) => {
-
+export const getDealMessages = async (req, res) => {
   try {
-
-    const messages =
-    await Message.find({
-
-      deal:
-      req.params.id,
-
+    const messages = await Message.find({
+      deal: req.params.id,
     })
+      .populate("sender", "fullName")
+      .sort({
+        createdAt: 1,
+      });
 
-    .populate(
-      "sender",
-      "fullName"
-    )
-
-    .sort({
-      createdAt: 1,
-    });
-
-
-
-    res.status(200).json(
-      messages
-    );
-
+    res.status(200).json(messages);
   } catch (error) {
-
     res.status(500).json({
-      message:
-      error.message,
+      message: error.message,
     });
-
   }
 };
 
-
-
 // ACCEPT DEAL
-exports.acceptDeal =
-async (req, res) => {
-
+export const acceptDeal = async (req, res) => {
   try {
-
-    const deal =
-    await Deal.findByIdAndUpdate(
-
+    const deal = await Deal.findByIdAndUpdate(
       req.params.id,
-
       {
-        status:
-        "accepted",
+        status: "accepted",
       },
-
       {
         new: true,
       }
     );
 
-
-
-    res.status(200).json(
-      deal
-    );
-
+    res.status(200).json(deal);
   } catch (error) {
-
     res.status(500).json({
-      message:
-      error.message,
+      message: error.message,
     });
-
   }
 };

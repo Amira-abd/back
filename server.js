@@ -12,8 +12,8 @@ import clientRoutes from './src/routes/clientRoutes.js';
 // import Message from './src/models/Message.js'; // 2. نقل استيراد الموديل هنا بدلاً من require
 
 // فك التشفير عن المسارات لو قمت بإنشاء ملفاتها مستقبلاً
-// import inventoryRoutes from './src/routes/inventoryRoutes.js';
-// import dealRoutes from './src/routes/dealRoutes.js';
+import inventoryRoutes from './src/routes/inventoryRoutes.js';
+import dealRoutes from './src/routes/dealRoutes.js';
 
 // CONFIG
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
@@ -44,8 +44,8 @@ app.use("/api", categoryRoutes);
 app.use("/api", clientRoutes);
 
 // 5. إذا كانت هذه الملفات غير موجودة بعد، اترك هذه الأسطر ممسوحة (Commented) لحين إنشائها:
-// app.use("/api/admin/inventory", inventoryRoutes);
-// app.use("/api/deals", dealRoutes);
+app.use("/api/admin/inventory", inventoryRoutes);
+app.use("/api/deals", dealRoutes);
 
 // TEST ROUTE
 app.get("/", (req, res) => {

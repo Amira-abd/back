@@ -4,16 +4,13 @@ const userSchema = new mongoose.Schema({
   full_name: { type: String, required: [true, 'الاسم بالكامل مطلوب'], trim: true },
   email: { type: String, required: [true, 'البريد الإلكتروني مطلوب'], unique: true, lowercase: true, trim: true },
   phone: { type: String, required: [true, 'رقم الهاتف مطلوب'], trim: true },
-    password_hash: {
-    type: String,
-    required: false // مش إجباري عشان يوزر جوجل معندوش باسورد في قاعدة بياناتنا
-    },
-    google_id: {
-    type: String,
-    unique: true,
-    sparse: true // بيسمح إن الحقل يكون فاضي لليوزر العادي ومكررش ليوزر جوجل
-    } ,
-    role: { type: String, enum: ['Buyer', 'Seller', 'Both', 'Admin'], required: [true, 'يجب تحديد نوع الحساب'] },
+  password_hash: { type: String, required: false },
+  google_id: { type: String, unique: true, sparse: true },
+  role: { type: String, enum: ['Buyer', 'Seller', 'Both', 'Admin'], required: [true, 'يجب تحديد نوع الحساب'] },
+  
+  // الحقل الجديد المسؤول عن تخزين مسار الملف المرفوع
+  id_card_path: { type: String, required: false }, 
+  
   is_verified: { type: Boolean, default: false },
   verification_status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   status: { type: String, enum: ['active', 'inactive', 'suspended'], default: 'active' },
@@ -24,4 +21,4 @@ const userSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('User', userSchema);
-export default User; 
+export default User;
