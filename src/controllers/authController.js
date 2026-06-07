@@ -198,3 +198,36 @@ export const login = async (req, res) => {
     });
   }
 };
+
+// التعديل في getProfile:
+export const getProfile = async (req, res) => {
+  try {
+    // نستخدم -password_hash بدلاً من -password
+    const user = await User.findById(req.user.id).select('-password_hash'); 
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'المستخدم غير موجود' });
+    }
+    
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'خطأ في جلب البيانات' });
+  }
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    // نحدد فقط الحقول المسموح للمستخدم بتعديلها
+    const { full_name, phone, city, address } = req.body;
+    
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { full_name, phone, city, address } }, 
+      { new: true }
+    ).select('-password_hash');
+    
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    res.status(500).json({ message: 'خطأ في التعديل' });
+  }
+};
