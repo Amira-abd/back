@@ -21,7 +21,7 @@ export const signup = async (req, res) => {
     let full_name = req.body.full_name;
     let email = req.body.email ? req.body.email.toLowerCase() : null;
     let google_id = undefined;
-    let hashedPassword = null; // تهيئة آمنة
+    let hashedPassword = null;
 
     const idCardPath = req.file ? req.file.path : null;
 
@@ -36,11 +36,24 @@ export const signup = async (req, res) => {
       email = payload.email.toLowerCase();
       full_name = payload.name;
     } else {
-      if (!email || !password || !full_name) {
-        return res.status(400).json({ success: false, message: 'يرجى إكمال البيانات المطلوبة.' });
+      // التحقق من وجود البيانات الأساسية
+      if (!email || !password || !full_name || !phone) {
+        return res.status(400).json({ success: false, message: 'يرجى إكمال البيانات المطلوبة (الاسم، الإيميل، الهاتف، كلمة المرور).' });
       }
 
-      // شرط كلمة المرور: 8 خانات، تشمل حروفاً وأرقاماً
+      // 1. التحقق من صحة الإيميل
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ success: false, message: 'صيغة البريد الإلكتروني غير صحيحة.' });
+      }
+
+      // 2. التحقق من صحة رقم الموبايل المصري (11 رقم)
+      const phoneRegex = /^01[0125][0-9]{8}$/;
+      if (!phoneRegex.test(phone)) {
+        return res.status(400).json({ success: false, message: 'رقم الهاتف يجب أن يكون رقماً مصرياً صحيحاً (مثلاً: 01012345678).' });
+      }
+
+      // 3. التحقق من كلمة المرور
       const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
       if (!passwordRegex.test(password)) {
         return res.status(400).json({ 
@@ -121,6 +134,7 @@ export const updateProfile = async (req, res) => {
 };
 
 export const forgotPassword = async (req, res) => {
+  console.log("البيانات المستلمة:", req.body);
   const { email } = req.body;
   const user = await User.findOne({ email });
 
@@ -135,11 +149,14 @@ export const forgotPassword = async (req, res) => {
   await user.save();
 
   // إرسال الإيميل
-  const transporter = nodemailer.createTransport({
-    service: 'gmail', // أو استخدمي خدمة SMTP الخاصة بكِ
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-  });
-
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: process.env.EMAIL_PORT,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
   await transporter.sendMail({
     from: process.env.EMAIL_USER,
     to: user.email,
