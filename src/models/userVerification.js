@@ -47,5 +47,5 @@ const verificationSchema = new mongoose.Schema({
 });
 
 // التعديل 2: تحويل التصدير لـ export default
-const Verification = mongoose.model("Verification", verificationSchema);
+const Verification = mongoose.model('Verification', verificationSchema, 'verifications');
 export default Verification;
