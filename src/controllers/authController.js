@@ -2,6 +2,8 @@ import { OAuth2Client } from 'google-auth-library';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -116,4 +118,54 @@ export const updateProfile = async (req, res) => {
     const { full_name, phone, city, address } = req.body;
     const updatedUser = await User.findByIdAndUpdate(req.user.id, { $set: { full_name, phone, city, address } }, { new: true }).select('-password_hash');
     res.status(200).json(updatedUser);
+};
+
+export const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+
+  if (!user) return res.status(404).json({ message: "المستخدم غير موجود" });
+
+  // إنشاء كود عشوائي
+  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // حفظ الكود في قاعدة البيانات مع وقت انتهاء (10 دقائق)
+  user.resetPasswordToken = resetCode;
+  user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+  await user.save();
+
+  // إرسال الإيميل
+  const transporter = nodemailer.createTransport({
+    service: 'gmail', // أو استخدمي خدمة SMTP الخاصة بكِ
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+  });
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: user.email,
+    subject: "كود إعادة تعيين كلمة المرور",
+    text: `كود التحقق الخاص بك هو: ${resetCode}`
+  });
+
+  res.status(200).json({ message: "تم إرسال الكود إلى بريدك الإلكتروني" });
+};
+
+// 2. إعادة تعيين كلمة المرور
+export const resetPassword = async (req, res) => {
+  const { email, code, newPassword } = req.body;
+  const user = await User.findOne({ 
+    email, 
+    resetPasswordToken: code, 
+    resetPasswordExpire: { $gt: Date.now() } 
+  });
+
+  if (!user) return res.status(400).json({ message: "الكود غير صحيح أو انتهت صلاحيته" });
+
+  const salt = await bcrypt.genSalt(10);
+  user.password_hash = await bcrypt.hash(newPassword, salt);
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+  await user.save();
+
+  res.status(200).json({ message: "تم تغيير كلمة المرور بنجاح" });
 };

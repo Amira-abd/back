@@ -2,7 +2,7 @@ import express from "express";
 const router = express.Router();
 
 import * as adminController from "../controllers/adminController.js";
-import { protect } from "../middlewares/authMiddleware.js"; // 👈 التعديل هنا
+import { protect } from "../middlewares/authMiddleware.js"; // 
 import adminMiddleware from "../middlewares/adminMiddleware.js";
 
 router.get(
