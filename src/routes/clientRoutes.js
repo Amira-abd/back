@@ -1,5 +1,5 @@
 import express from 'express';
-import { protect, requireVerifiedSeller } from '../middlewares/authMiddleware.js';
+import { protect, requireVerifiedSeller, requireVerifiedBuyer } from '../middlewares/authMiddleware.js';
 
 // ── RFQ controllers ──
 import {
@@ -42,12 +42,12 @@ router.get('/rfqs', getAllRfqs);
 router.get('/rfqs/:id', getRfqById);
 router.get('/rfqs/:id/offers', getRfqOffers);
 
-// Buyer (any authenticated)
-router.post('/rfqs', protect, createRfq);
-router.put('/rfqs/:id', protect, updateRfq);
-router.delete('/rfqs/:id', protect, cancelRfq);
-router.put('/rfqs/:rfqId/offers/:offerId/accept', protect, acceptOffer);
-router.put('/rfqs/:rfqId/offers/:offerId/reject', protect, rejectOffer);
+// Buyer (verified only)
+router.post('/rfqs', protect, requireVerifiedBuyer, createRfq);
+router.put('/rfqs/:id', protect, requireVerifiedBuyer, updateRfq);
+router.delete('/rfqs/:id', protect, requireVerifiedBuyer, cancelRfq);
+router.put('/rfqs/:rfqId/offers/:offerId/accept', protect, requireVerifiedBuyer, acceptOffer);
+router.put('/rfqs/:rfqId/offers/:offerId/reject', protect, requireVerifiedBuyer, rejectOffer);
 
 // Seller (verified only)
 router.post('/rfqs/:id/offers', protect, requireVerifiedSeller, sendOffer);
@@ -66,7 +66,7 @@ router.get('/marketplace/:id', getProductById);
 
 // Protected — verified seller only
 router.post('/marketplace/products', protect, requireVerifiedSeller, createProduct);
-router.put('/marketplace/products/:id', protect, updateProduct);
-router.delete('/marketplace/products/:id', protect, deleteProduct);
+router.put('/marketplace/products/:id', protect, requireVerifiedSeller, updateProduct);
+router.delete('/marketplace/products/:id', protect, requireVerifiedSeller, deleteProduct);
 
 export default router;

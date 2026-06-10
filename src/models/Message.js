@@ -1,43 +1,24 @@
 import mongoose from 'mongoose';
 
-const orderSchema = new mongoose.Schema({
-  buyer_id: { 
+const messageSchema = new mongoose.Schema({
+  deal: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Deal', 
+    required: true 
+  },
+  sender: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User', 
     required: true 
   },
-  seller_id: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
-  },
-  rfq_offer_id: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'RfqOffer', 
-    required: true 
-  },
-  quantity: { 
-    type: Number, 
-    required: true, 
-    min: 1 
-  },
-  total_price: { 
-    type: Number, 
-    required: true, 
-    min: 0 
-  },
-  order_status: { 
+  text: { 
     type: String, 
-    enum: ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'], 
-    default: 'pending' 
-  },
-  payment_status: { 
-    type: String, 
-    enum: ['unpaid', 'paid', 'refunded'], 
-    default: 'unpaid' 
-  },
-}, { timestamps: true });
+    required: true 
+  }
+}, { 
+  timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } 
+});
 
-const Order = mongoose.model('Order', orderSchema);
+const Message = mongoose.model('Message', messageSchema);
 
-export default Order;
+export default Message;

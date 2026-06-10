@@ -10,6 +10,11 @@ const userSchema = new mongoose.Schema({
   
   // الحقل الجديد المسؤول عن تخزين مسار الملف المرفوع
   id_card_path: { type: String, required: false }, 
+  national_id_doc: { type: String, required: false },
+  company_register_doc: { type: String, required: false },
+  tax_certificate_doc: { type: String, required: false },
+  profile_image: { type: String, required: false },
+  rejection_reason: { type: String, required: false },
   
   is_verified: { type: Boolean, default: false },
   verification_status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },

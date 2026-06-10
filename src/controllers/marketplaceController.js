@@ -1,6 +1,8 @@
 import Product from '../models/Product.js';
 import ProductImage from '../models/ProductImage.js';
 import User from '../models/User.js';
+import Notification from '../models/Notification.js';
+import { createNotification } from '../services/notificationService.js';
 
 // Get all active products with filters and pagination
 const getAllProducts = async (req, res) => {
@@ -113,7 +115,7 @@ const getProductById = async (req, res) => {
 // Create a new product listing
 const createProduct = async (req, res) => {
   try {
-    const { title, description, category_id, quantity, unit, condition, price, city, location, images } = req.body;
+    const { title, description, category_id, quantity, unit, condition, price, city, location, images, status } = req.body;
 
     const product = await Product.create({
       seller_id: req.user._id,
@@ -123,9 +125,10 @@ const createProduct = async (req, res) => {
       quantity,
       unit,
       condition,
-      price,
+      price: price === null || price === undefined ? 0 : price,
       city,
       location,
+      status: status || 'active',
     });
 
     if (images && Array.isArray(images) && images.length > 0) {
@@ -135,6 +138,53 @@ const createProduct = async (req, res) => {
         sort_order: img.sort_order ?? i,
       }));
       await ProductImage.insertMany(imageDocs);
+    }
+
+    // Generate Notification for seller
+    let notifTitle = "Surplus Material Published";
+    let notifDesc = `Your surplus material listing "${product.title}" has been successfully published.`;
+    let notifType = 'surplus_published';
+    if (status === 'inactive') {
+      notifTitle = "Draft Saved";
+      notifDesc = `Your surplus material "${product.title}" has been saved as a draft.`;
+      notifType = 'surplus';
+    }
+
+    await createNotification({
+      recipient: req.user._id,
+      type: notifType,
+      title: notifTitle,
+      description: notifDesc,
+      entityType: 'Product',
+      entityId: product._id,
+      actionUrl: '/dashboard/inventory',
+      priority: 'medium'
+    });
+
+    // Notify relevant B2B buyer users about new surplus if active
+    if (status !== 'inactive') {
+      try {
+        const buyers = await User.find({
+          role: { $in: ['Buyer', 'Both'] },
+          _id: { $ne: req.user._id }
+        }).lean();
+
+        for (const buyer of buyers) {
+          await createNotification({
+            recipient: buyer._id,
+            sender: req.user._id,
+            type: 'surplus',
+            title: 'New Surplus Material',
+            description: `A new surplus material "${product.title}" has been added to the marketplace.`,
+            entityType: 'Product',
+            entityId: product._id,
+            actionUrl: `/marketplace/${product._id}`,
+            priority: 'low'
+          });
+        }
+      } catch (err) {
+        console.error('Failed to generate new product notifications', err);
+      }
     }
 
     res.status(201).json({ message: 'Product created successfully', data: product });

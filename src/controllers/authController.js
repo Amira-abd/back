@@ -1,6 +1,7 @@
 import { OAuth2Client } from 'google-auth-library';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
+import Verification from '../models/userVerification.js';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
@@ -23,7 +24,23 @@ export const signup = async (req, res) => {
     let google_id = undefined;
     let hashedPassword = null; // تهيئة آمنة
 
-    const idCardPath = req.file ? req.file.path : null;
+    const files = req.files || {};
+    const fileKeys = Object.keys(files).filter(key => files[key] && files[key].length > 0);
+
+    const hasNationalId = files.nationalIdDoc || files.idFile;
+    if (!hasNationalId) {
+      return res.status(400).json({ success: false, message: "National ID image is required." });
+    }
+
+    const extraFileKeys = fileKeys.filter(key => key !== 'nationalIdDoc' && key !== 'idFile');
+    if (extraFileKeys.length > 0 || (files.nationalIdDoc && files.nationalIdDoc.length > 1) || (files.idFile && files.idFile.length > 1)) {
+      return res.status(400).json({ success: false, message: "Only one National ID image is allowed. Multiple uploads are rejected." });
+    }
+
+    const nationalIdDocPath = files.nationalIdDoc ? files.nationalIdDoc[0].path : files.idFile[0].path;
+    const companyRegisterDocPath = null;
+    const taxCertificateDocPath = null;
+    const profileImagePath = null;
 
     if (role === 'Admin') {
       return res.status(403).json({ success: false, message: 'غير مسموح بإنشاء حسابات إدارة.' });
@@ -67,17 +84,48 @@ export const signup = async (req, res) => {
       role,
       city,
       address,
-      id_card_path: idCardPath
+      id_card_path: nationalIdDocPath,
+      national_id_doc: nationalIdDocPath,
+      company_register_doc: companyRegisterDocPath,
+      tax_certificate_doc: taxCertificateDocPath,
+      profile_image: profileImagePath,
+      verification_status: 'pending',
+      is_verified: false
     });
 
     await newUser.save();
+
+    const newVerification = new Verification({
+      user: newUser._id,
+      nationalIdNumber: phone || 'N/A',
+      idImage: nationalIdDocPath || 'N/A',
+      companyRegisterDoc: companyRegisterDocPath,
+      taxCertificateDoc: taxCertificateDocPath,
+      profileImage: profileImagePath,
+      reviewStatus: 'pending',
+      submittedAt: new Date()
+    });
+    await newVerification.save();
+
     const ecoToken = createEcoToken(newUser);
 
     res.status(201).json({
       success: true,
       message: 'تم إنشاء الحساب بنجاح',
       token: ecoToken,
-      user: { id: newUser._id, full_name: newUser.full_name, email: newUser.email, role: newUser.role }
+      user: { 
+        id: newUser._id, 
+        full_name: newUser.full_name, 
+        email: newUser.email, 
+        role: newUser.role,
+        is_verified: newUser.is_verified,
+        verification_status: newUser.verification_status,
+        id_card_path: newUser.id_card_path,
+        national_id_doc: newUser.national_id_doc,
+        company_register_doc: newUser.company_register_doc,
+        tax_certificate_doc: newUser.tax_certificate_doc,
+        profile_image: newUser.profile_image
+      }
     });
 
   } catch (error) {
@@ -168,4 +216,75 @@ export const resetPassword = async (req, res) => {
   await user.save();
 
   res.status(200).json({ message: "تم تغيير كلمة المرور بنجاح" });
+};
+
+export const submitVerification = async (req, res) => {
+  try {
+    const files = req.files || {};
+    const fileKeys = Object.keys(files).filter(key => files[key] && files[key].length > 0);
+
+    const hasNationalId = files.nationalIdDoc || files.idFile;
+    if (!hasNationalId) {
+      return res.status(400).json({ success: false, message: "National ID image is required." });
+    }
+
+    const allowedKeys = ['nationalIdDoc', 'idFile', 'companyRegisterDoc', 'taxCertificateDoc', 'profileImage'];
+    const extraFileKeys = fileKeys.filter(key => !allowedKeys.includes(key));
+    if (extraFileKeys.length > 0 || (files.nationalIdDoc && files.nationalIdDoc.length > 1) || (files.idFile && files.idFile.length > 1)) {
+      return res.status(400).json({ success: false, message: "Only one National ID image is allowed. Multiple uploads are rejected." });
+    }
+
+    const nationalIdDocPath = files.nationalIdDoc ? files.nationalIdDoc[0].path : files.idFile[0].path;
+    const companyRegisterDocPath = null;
+    const taxCertificateDocPath = null;
+    const profileImagePath = null;
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "المستخدم غير موجود." });
+    }
+
+    if (nationalIdDocPath) {
+      user.id_card_path = nationalIdDocPath;
+      user.national_id_doc = nationalIdDocPath;
+    }
+    if (companyRegisterDocPath) {
+      user.company_register_doc = companyRegisterDocPath;
+    }
+    if (taxCertificateDocPath) {
+      user.tax_certificate_doc = taxCertificateDocPath;
+    }
+    if (profileImagePath) {
+      user.profile_image = profileImagePath;
+    }
+
+    user.verification_status = 'pending';
+    user.is_verified = false;
+    await user.save();
+
+    let verification = await Verification.findOne({ user: user._id, reviewStatus: 'pending' });
+    if (!verification) {
+      verification = new Verification({
+        user: user._id,
+        reviewStatus: 'pending',
+        submittedAt: new Date()
+      });
+    }
+
+    if (nationalIdDocPath) verification.idImage = nationalIdDocPath;
+    if (companyRegisterDocPath) verification.companyRegisterDoc = companyRegisterDocPath;
+    if (taxCertificateDocPath) verification.taxCertificateDoc = taxCertificateDocPath;
+    if (profileImagePath) verification.profileImage = profileImagePath;
+    verification.nationalIdNumber = user.phone || 'N/A';
+    
+    await verification.save();
+
+    res.status(200).json({
+      success: true,
+      message: "تم تقديم طلب التحقق بنجاح.",
+      user
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 };

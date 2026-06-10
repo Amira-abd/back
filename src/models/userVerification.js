@@ -8,15 +8,27 @@ const verificationSchema = new mongoose.Schema({
 
   nationalIdNumber: {
     type: String,
-    required: true,
+    required: false,
   },
 
   idImage: {
     type: String,
-    required: true,
+    required: false,
   },
 
   selfieImage: {
+    type: String,
+  },
+
+  companyRegisterDoc: {
+    type: String,
+  },
+
+  taxCertificateDoc: {
+    type: String,
+  },
+
+  profileImage: {
     type: String,
   },
 

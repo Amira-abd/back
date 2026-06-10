@@ -25,6 +25,21 @@ const dealSchema = new mongoose.Schema({
     ],
     default: "negotiating",
   },
+  paymentStatus: {
+    type: String,
+    enum: [
+      "pending",
+      "processing",
+      "paid",
+      "failed",
+      "cancelled",
+      "refunded",
+    ],
+    default: "pending",
+  },
+  transactionId: {
+    type: String,
+  },
 }, {
   timestamps: true,
 });

@@ -1,7 +1,11 @@
 import Rfq from '../models/Rfq.js';
 import RfqAttachment from '../models/RfqAttachment.js';
 import RfqOffer from '../models/RfqOffer.js';
-// import Order from '../models/Order.js';
+import Deal from '../models/Deal.js';
+import Message from '../models/Message.js';
+import Notification from '../models/Notification.js';
+import User from '../models/User.js';
+import { createNotification } from '../services/notificationService.js';
 
 const getAllRfqs = async (req, res) => {
   try {
@@ -116,6 +120,42 @@ const createRfq = async (req, res) => {
       await RfqAttachment.insertMany(attachmentDocs);
     }
 
+    // Send request created notification to buyer
+    await createNotification({
+      recipient: req.user._id,
+      type: 'rfq_event',
+      title: 'RFQ Request Created',
+      description: `Your RFQ "${rfq.title}" has been successfully created.`,
+      entityType: 'Rfq',
+      entityId: rfq._id,
+      actionUrl: `/dashboard/rfqs`,
+      priority: 'low'
+    });
+
+    // Send request matched notification to categories match verified sellers
+    try {
+      const matchingSellers = await User.find({
+        role: { $in: ['Seller', 'Both'] },
+        verification_status: 'approved',
+        _id: { $ne: req.user._id }
+      }).lean();
+
+      for (const seller of matchingSellers) {
+        await createNotification({
+          recipient: seller._id,
+          type: 'request_matched',
+          title: 'Request Matched',
+          description: `A buyer is looking for "${rfq.title}" in your business category. Submit your offer!`,
+          entityType: 'Rfq',
+          entityId: rfq._id,
+          actionUrl: `/rfq/${rfq._id}`,
+          priority: 'medium'
+        });
+      }
+    } catch (matchErr) {
+      console.error('Failed to notify matching sellers:', matchErr);
+    }
+
     res.status(201).json({ message: 'RFQ created successfully', data: rfq });
   } catch (err) {
     // لو فيه أي خطأ في الـ Validation (زي اللي ظهرلك)، هيظهر هنا
@@ -214,6 +254,39 @@ const sendOffer = async (req, res) => {
       message,
     })
 
+    // Automatically create a Deal (negotiation chat room) between buyer and seller
+    const existingDeal = await Deal.findOne({
+      buyer: rfq.buyer_id,
+      seller: req.user._id,
+      product: null
+    });
+
+    if (!existingDeal) {
+      const deal = await Deal.create({
+        buyer: rfq.buyer_id,
+        seller: req.user._id,
+        status: 'negotiating'
+      });
+
+      await Message.create({
+        deal: deal._id,
+        sender: req.user._id,
+        text: `Hello, I have sent a quote of $${price} for your RFQ "${rfq.title}". Delivery: ${delivery_time}. Note: ${message || 'No additional message.'}`
+      });
+    }
+
+    await createNotification({
+      recipient: rfq.buyer_id,
+      sender: req.user._id,
+      type: 'new_offer',
+      title: 'New Offer Received',
+      description: `A new offer of $${price} was submitted for your RFQ "${rfq.title}".`,
+      entityType: 'RfqOffer',
+      entityId: offer._id,
+      actionUrl: `/dashboard/rfqs?rfqId=${rfq._id}`,
+      priority: 'medium'
+    });
+
     res.status(201).json({ message: 'Offer sent successfully', data: offer })
   } catch (err) {
     if (err.code === 11000) {
@@ -252,20 +325,39 @@ const acceptOffer = async (req, res) => {
       { status: 'rejected' }
     )
 
-    rfq.status = 'closed'
+    rfq.status = 'accepted'
     await rfq.save()
 
-    // const order = await Order.create({
-    //   buyer_id: rfq.buyer_id,
-    //   seller_id: offer.seller_id,
-    //   rfq_offer_id: offer._id,
-    //   quantity: rfq.quantity,
-    //   total_price: offer.price,
-    //   order_status: 'pending',
-    //   payment_status: 'unpaid',
-    // })
+    const existingDeal = await Deal.findOne({
+      buyer: rfq.buyer_id,
+      seller: offer.seller_id,
+      product: null
+    });
 
-    res.json({ message: 'Offer accepted successfully', data: { offer, order } })
+    if (existingDeal) {
+      existingDeal.status = 'accepted';
+      await existingDeal.save();
+    } else {
+      await Deal.create({
+        buyer: rfq.buyer_id,
+        seller: offer.seller_id,
+        status: 'accepted'
+      });
+    }
+
+    await createNotification({
+      recipient: offer.seller_id,
+      sender: req.user._id,
+      type: 'offer_accepted',
+      title: 'Offer Accepted',
+      description: `Your offer for RFQ "${rfq.title}" has been accepted. You can now chat with the buyer.`,
+      entityType: 'RfqOffer',
+      entityId: offer._id,
+      actionUrl: `/dashboard/my-offers`,
+      priority: 'high'
+    });
+
+    res.json({ message: 'Offer accepted successfully', data: { offer } })
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message })
   }
@@ -291,6 +383,18 @@ const rejectOffer = async (req, res) => {
 
     offer.status = 'rejected'
     await offer.save()
+
+    await createNotification({
+      recipient: offer.seller_id,
+      sender: req.user._id,
+      type: 'offer_rejected',
+      title: 'Offer Rejected',
+      description: `Your offer for RFQ "${rfq.title}" has been rejected.`,
+      entityType: 'RfqOffer',
+      entityId: offer._id,
+      actionUrl: `/marketplace`,
+      priority: 'low'
+    });
 
     res.json({ message: 'Offer rejected successfully', data: offer })
   } catch (err) {

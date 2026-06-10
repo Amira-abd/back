@@ -60,11 +60,49 @@ export const protect = async (req, res, next) => { // ضفنا async هنا
 };
 
 export const requireVerifiedSeller = (req, res, next) => {
-  // عدلتها برضه عشان تتماشى مع الـ fields الحقيقية في الـ Schema بتاعك
-  if (!req.user || (req.user.role !== 'seller' && req.user.verification_status !== 'approved')) {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+  const role = req.user.role?.toLowerCase();
+  const isSellerRole = role === 'seller' || role === 'both';
+  const status = req.user.verification_status?.toLowerCase();
+  const isVerified = status === 'approved' || status === 'verified';
+  if (!isSellerRole || !isVerified) {
     return res.status(403).json({
       success: false,
       message: "Access denied. Only verified sellers can perform this action.",
+    });
+  }
+  next();
+};
+
+export const requireVerifiedBuyer = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+  const role = req.user.role?.toLowerCase();
+  const isBuyerRole = role === 'buyer' || role === 'both';
+  const status = req.user.verification_status?.toLowerCase();
+  const isVerified = status === 'approved' || status === 'verified';
+  if (!isBuyerRole || !isVerified) {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Only verified buyers can perform this action.",
+    });
+  }
+  next();
+};
+
+export const requireVerifiedUser = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+  const status = req.user.verification_status?.toLowerCase();
+  const isVerified = status === 'approved' || status === 'verified';
+  if (!isVerified) {
+    return res.status(403).json({
+      success: false,
+      message: "Your account must be verified before using marketplace features.",
     });
   }
   next();

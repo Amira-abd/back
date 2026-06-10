@@ -33,4 +33,33 @@ router.patch(
   adminController.rejectVerification
 );
 
+// Admin User Verification Routes
+router.get(
+  "/users",
+  protect,
+  adminMiddleware,
+  adminController.getAllUsers
+);
+
+router.get(
+  "/users/pending",
+  protect,
+  adminMiddleware,
+  adminController.getPendingUsers
+);
+
+router.patch(
+  "/users/:id/approve",
+  protect,
+  adminMiddleware,
+  adminController.approveUserVerification
+);
+
+router.patch(
+  "/users/:id/reject",
+  protect,
+  adminMiddleware,
+  adminController.rejectUserVerification
+);
+
 export default router;

@@ -8,7 +8,7 @@ const rfqSchema = new mongoose.Schema({
   quantity: { type: Number, required: true, min: 1 },
   unit: { type: String, required: true, trim: true },
   location: { type: String, trim: true },
-  status: { type: String, enum: ['open', 'closed', 'cancelled'], default: 'open' },
+  status: { type: String, enum: ['open', 'closed', 'cancelled', 'accepted'], default: 'open' },
 }, { timestamps: { createdAt: 'created_at', updatedAt: false } });
 
 // الـ Indexes ممتازة جداً للأداء وسرعة البحث
