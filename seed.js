@@ -1,17 +1,25 @@
-const mongoose = require('mongoose')
-const bcrypt = require('bcryptjs')
-const config = require('./src/config')
-const User = require('./src/models/User')
-const Category = require('./src/models/Category')
-const Rfq = require('./src/models/Rfq')
-const RfqAttachment = require('./src/models/RfqAttachment')
-const RfqOffer = require('./src/models/RfqOffer')
-const Product = require('./src/models/Product')
-const ProductImage = require('./src/models/ProductImage')
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+import dotenv from 'dotenv';
+import path from 'path';
+import User from './src/models/User.js';
+import Category from './src/models/Category.js';
+import Rfq from './src/models/Rfq.js';
+import RfqAttachment from './src/models/RfqAttachment.js';
+import RfqOffer from './src/models/RfqOffer.js';
+import Product from './src/models/Product.js';
+import ProductImage from './src/models/ProductImage.js';
+
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 async function seed() {
-  await mongoose.connect(config.db.uri)
-  console.log('Connected to MongoDB')
+  const mongoUri = process.env.MONGO_URI;
+  if (!mongoUri) {
+    throw new Error('MONGO_URI is not defined in the environment variables');
+  }
+
+  await mongoose.connect(mongoUri);
+  console.log('Connected to MongoDB');
 
   // Clear existing data
   await Promise.all([
@@ -22,8 +30,8 @@ async function seed() {
     RfqOffer.deleteMany({}),
     Product.deleteMany({}),
     ProductImage.deleteMany({}),
-  ])
-  console.log('Cleared existing data')
+  ]);
+  console.log('Cleared existing data');
 
   // Categories
   const categories = await Category.insertMany([
@@ -32,49 +40,72 @@ async function seed() {
     { name: 'Logistics', description: 'Transportation and logistics services' },
     { name: 'Electronics', description: 'Electronic components and devices' },
     { name: 'Chemicals', description: 'Industrial chemicals and compounds' },
-  ])
-  console.log(`Created ${categories.length} categories`)
+  ]);
+  console.log(`Created ${categories.length} categories`);
 
   // Users
-  const hashedPassword = await bcrypt.hash('password123', 10)
+  const hashedPassword = await bcrypt.hash('password123', 10);
 
   const users = await User.insertMany([
     {
       full_name: 'Alice Buyer',
       email: 'alice@example.com',
-      password: hashedPassword,
-      role: 'buyer',
+      password_hash: hashedPassword,
+      phone: '+1 555-0101',
+      role: 'Buyer',
       city: 'New York',
+      address: '123 Buyer St, New York NY',
       verification_status: 'approved',
+      is_verified: true,
     },
     {
       full_name: 'Bob Buyer',
       email: 'bob@example.com',
-      password: hashedPassword,
-      role: 'buyer',
+      password_hash: hashedPassword,
+      phone: '+1 555-0102',
+      role: 'Buyer',
       city: 'Los Angeles',
+      address: '456 Buyer Rd, Los Angeles CA',
       verification_status: 'approved',
+      is_verified: true,
+    },
+    {
+      full_name: 'Charlie Seller',
+      email: 'charlie@example.com',
+      password_hash: hashedPassword,
+      phone: '+1 555-0103',
+      role: 'Seller',
+      city: 'Chicago',
+      address: '789 Seller Way, Chicago IL',
+      verification_status: 'approved',
+      is_verified: true,
     },
     {
       full_name: 'Diana Seller',
       email: 'diana@example.com',
-      password: hashedPassword,
-      role: 'seller',
+      password_hash: hashedPassword,
+      phone: '+1 555-0104',
+      role: 'Seller',
       city: 'Houston',
-      verification_status: 'verified',
+      address: '321 Seller Blvd, Houston TX',
+      verification_status: 'approved',
+      is_verified: true,
     },
     {
       full_name: 'Eve Seller (unverified)',
       email: 'eve@example.com',
-      password: hashedPassword,
-      role: 'seller',
+      password_hash: hashedPassword,
+      phone: '+1 555-0105',
+      role: 'Seller',
       city: 'Miami',
+      address: '654 Seller Ln, Miami FL',
       verification_status: 'pending',
+      is_verified: false,
     },
-  ])
-  console.log(`Created ${users.length} users`)
+  ]);
+  console.log(`Created ${users.length} users`);
 
-  const [alice, bob, charlie, diana] = users
+  const [alice, bob, charlie, diana, eve] = users;
 
   // RFQs
   const rfqs = await Rfq.insertMany([
@@ -118,15 +149,15 @@ async function seed() {
       location: 'Los Angeles',
       status: 'closed',
     },
-  ])
-  console.log(`Created ${rfqs.length} RFQs`)
+  ]);
+  console.log(`Created ${rfqs.length} RFQs`);
 
   // Attachments for first RFQ
   const attachments = await RfqAttachment.insertMany([
     { rfq_id: rfqs[0]._id, file_url: 'https://example.com/uploads/spec-sheet.pdf' },
     { rfq_id: rfqs[0]._id, file_url: 'https://example.com/uploads/dimensions.pdf' },
-  ])
-  console.log(`Created ${attachments.length} attachments`)
+  ]);
+  console.log(`Created ${attachments.length} attachments`);
 
   // Offers
   const offers = await RfqOffer.insertMany([
@@ -162,8 +193,8 @@ async function seed() {
       message: 'In stock, ready to ship immediately.',
       status: 'pending',
     },
-  ])
-  console.log(`Created ${offers.length} offers`)
+  ]);
+  console.log(`Created ${offers.length} offers`);
 
   // Products
   const products = await Product.insertMany([
@@ -245,11 +276,11 @@ async function seed() {
       location: 'Houston TX',
       status: 'active',
     },
-  ])
-  console.log(`Created ${products.length} products`)
+  ]);
+  console.log(`Created ${products.length} products`);
 
   // Product images
-  const productImages = await ProductImage.insertMany([
+  await ProductImage.insertMany([
     { product_id: products[0]._id, image_url: 'https://picsum.photos/seed/alum1/400/400', sort_order: 0 },
     { product_id: products[0]._id, image_url: 'https://picsum.photos/seed/alum2/400/400', sort_order: 1 },
     { product_id: products[1]._id, image_url: 'https://picsum.photos/seed/box1/400/400', sort_order: 0 },
@@ -259,18 +290,18 @@ async function seed() {
     { product_id: products[3]._id, image_url: 'https://picsum.photos/seed/rpi1/400/400', sort_order: 0 },
     { product_id: products[4]._id, image_url: 'https://picsum.photos/seed/acetone1/400/400', sort_order: 0 },
     { product_id: products[5]._id, image_url: 'https://picsum.photos/seed/steel1/400/400', sort_order: 0 },
-  ])
-  console.log(`Created ${productImages.length} product images`)
+  ]);
+  console.log('Created product images');
 
-  console.log('\n--- Seed completed ---')
-  console.log('Login credentials for all users: password123')
-  console.log('Buyers: alice@example.com, bob@example.com')
-  console.log('Sellers: charlie@example.com, diana@example.com, eve@example.com')
+  console.log('\n--- Seed completed ---');
+  console.log('Login credentials for all users: password123');
+  console.log('Buyers: alice@example.com, bob@example.com');
+  console.log('Sellers: charlie@example.com, diana@example.com, eve@example.com');
 
-  await mongoose.disconnect()
+  await mongoose.disconnect();
 }
 
 seed().catch((err) => {
-  console.error('Seed failed:', err)
-  process.exit(1)
-})
+  console.error('Seed failed:', err);
+  process.exit(1);
+});

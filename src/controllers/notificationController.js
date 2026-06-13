@@ -73,11 +73,11 @@ export const getUnreadCount = async (req, res) => {
 };
 
 // Mark a single notification as read
-export const markAsRead = async (req, res) => {
+export const updateNotificationStatus = async (req, res) => {
   try {
     const notification = await Notification.findOneAndUpdate(
       { _id: req.params.id, recipient: req.user._id },
-      { isRead: true },
+      { isRead: true, readAt: new Date() },
       { new: true }
     );
 
@@ -91,12 +91,14 @@ export const markAsRead = async (req, res) => {
   }
 };
 
+export const markAsRead = updateNotificationStatus;
+
 // Mark all notifications as read for the user
 export const markAllAsRead = async (req, res) => {
   try {
     await Notification.updateMany(
       { recipient: req.user._id, isRead: false },
-      { isRead: true }
+      { isRead: true, readAt: new Date() }
     );
 
     res.json({ message: 'All notifications marked as read' });

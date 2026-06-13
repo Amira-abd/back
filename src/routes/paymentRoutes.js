@@ -3,7 +3,9 @@ import {
   createPaymentIntent, 
   confirmPayment, 
   getPaymentDetails, 
-  updatePaymentStatus 
+  updatePaymentStatus,
+  createPaymobKey,
+  handlePaymobWebhook
 } from '../controllers/paymentController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import adminMiddleware from '../middlewares/adminMiddleware.js';
@@ -15,6 +17,10 @@ router.post('/create-intent', protect, createPaymentIntent);
 
 // Route to confirm card payment in DB
 router.post('/confirm', protect, confirmPayment);
+
+// Paymob integration routes
+router.post('/paymob/create-key', protect, createPaymobKey);
+router.post('/paymob/webhook', handlePaymobWebhook);
 
 // Route to fetch payment details
 router.get('/:id', protect, getPaymentDetails);

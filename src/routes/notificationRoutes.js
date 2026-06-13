@@ -2,7 +2,7 @@ import express from 'express';
 import { 
   getMyNotifications, 
   getUnreadCount, 
-  markAsRead, 
+  updateNotificationStatus, 
   markAllAsRead, 
   deleteNotification 
 } from '../controllers/notificationController.js';
@@ -13,7 +13,7 @@ const router = express.Router();
 router.get('/', protect, getMyNotifications);
 router.get('/unread', protect, getUnreadCount);
 router.patch('/read-all', protect, markAllAsRead);
-router.patch('/:id/read', protect, markAsRead);
+router.patch('/:id/read', protect, updateNotificationStatus);
 router.delete('/:id', protect, deleteNotification);
 
 export default router;

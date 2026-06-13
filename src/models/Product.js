@@ -31,6 +31,17 @@ const productSchema = new mongoose.Schema({
     default: 'active',
     index: true 
   },
+  complianceStatus: {
+    type: String,
+    enum: ['pending', 'verified', 'flagged'],
+    default: 'pending',
+    index: true
+  },
+  isHidden: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
 }, { 
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
   toJSON: { virtuals: true }, // تفعيل ظهور الـ virtuals عند التحويل لـ JSON

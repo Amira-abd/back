@@ -3,6 +3,7 @@ import Payment from '../models/Payment.js';
 import Deal from '../models/Deal.js';
 import User from '../models/User.js';
 import { createNotification } from '../services/notificationService.js';
+import { generatePaymobCheckout } from '../services/paymentService.js';
 
 // Helper to make Stripe API requests directly (avoiding the need for Stripe npm package)
 const stripeRequest = async (method, path, data = null) => {
@@ -327,3 +328,201 @@ export const updatePaymentStatus = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to update payment status.', error: error.message });
   }
 };
+
+// Create Paymob checkout and key
+export const createPaymobKey = async (req, res) => {
+  try {
+    const { dealId } = req.body;
+    if (!dealId) {
+      return res.status(400).json({ success: false, message: 'Deal ID is required.' });
+    }
+
+    const deal = await Deal.findById(dealId).populate('product');
+    if (!deal) {
+      return res.status(404).json({ success: false, message: 'Deal not found.' });
+    }
+
+    // Check duplicate paid payment
+    const existingPaidPayment = await Payment.findOne({ deal: dealId, status: 'paid' });
+    if (existingPaidPayment) {
+      return res.status(400).json({ success: false, message: 'This deal has already been paid.' });
+    }
+
+    // Calculate total pricing
+    const itemPrice = deal.offeredPrice || 0;
+    const quantity = deal.quantity || 1;
+    const subtotal = itemPrice * quantity;
+    const platformFee = subtotal * 0.02;
+    const finalAmount = subtotal + platformFee;
+
+    if (finalAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Payment amount must be greater than zero.' });
+    }
+
+    const buyerUser = await User.findById(deal.buyer);
+    const billingData = {
+      first_name: buyerUser.full_name?.split(' ')[0] || 'Buyer',
+      last_name: buyerUser.full_name?.split(' ')[1] || 'Enterprise',
+      email: buyerUser.email,
+      phone_number: buyerUser.phone || '01000000000',
+      city: buyerUser.city || 'NA',
+      street: buyerUser.address || 'NA'
+    };
+
+    const checkoutData = await generatePaymobCheckout(finalAmount, billingData, 'USD');
+
+    // Create or update pending Payment in DB
+    const uniquePaymentIntentId = checkoutData.isMock ? checkoutData.paymentKey : `paymob_intent_${checkoutData.orderId}`;
+    
+    let payment = await Payment.findOne({ deal: dealId, status: 'pending' });
+    if (!payment) {
+      payment = new Payment({
+        buyer: deal.buyer,
+        seller: deal.seller,
+        deal: dealId,
+        product: deal.product?._id,
+        amount: finalAmount,
+        currency: 'usd',
+        paymentIntentId: uniquePaymentIntentId,
+        status: 'pending'
+      });
+    } else {
+      payment.amount = finalAmount;
+      payment.paymentIntentId = uniquePaymentIntentId;
+    }
+    await payment.save();
+
+    // Trigger Payment Pending Notification
+    await createNotification({
+      recipient: deal.buyer,
+      sender: deal.seller,
+      type: 'payment_pending',
+      title: 'Paymob Payment Pending',
+      description: `Secured escrow payment of $${finalAmount.toFixed(2)} for "${deal.product?.title || 'Material Batch'}" via Paymob is pending confirmation.`,
+      entityType: 'Deal',
+      entityId: deal._id,
+      actionUrl: `/payment/${deal._id}`,
+      priority: 'medium'
+    });
+
+    res.status(200).json({
+      success: true,
+      iframeUrl: checkoutData.iframeUrl,
+      paymentIntentId: uniquePaymentIntentId,
+      amount: finalAmount,
+      isMock: checkoutData.isMock,
+      payment
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to create Paymob checkout.', error: error.message });
+  }
+};
+
+// Handle Paymob transaction callback webhooks
+export const handlePaymobWebhook = async (req, res) => {
+  try {
+    const transaction = req.body.obj;
+    if (!transaction) {
+      return res.status(400).json({ success: false, message: 'Invalid payload.' });
+    }
+
+    const orderId = transaction.order?.id;
+    const isSuccess = transaction.success;
+    const transactionId = transaction.id;
+
+    // Locate the payment record
+    const paymentIntentId = `paymob_intent_${orderId}`;
+    const payment = await Payment.findOne({ 
+      $or: [
+        { paymentIntentId },
+        { paymentIntentId: String(orderId) },
+        { paymentIntentId: String(transactionId) }
+      ]
+    }).populate('deal');
+
+    if (!payment) {
+      console.warn(`Paymob Webhook Warning: Payment record for order ${orderId} / txn ${transactionId} not found.`);
+      return res.status(200).json({ success: true, message: 'Payment record not found, webhook acknowledged.' });
+    }
+
+    if (payment.status === 'paid') {
+      return res.status(200).json({ success: true, message: 'Payment was already confirmed.' });
+    }
+
+    const paymentStatus = isSuccess ? 'paid' : 'failed';
+    payment.status = paymentStatus;
+    if (transactionId) {
+      payment.paymentIntentId = `paymob_txn_${transactionId}`;
+    }
+    await payment.save();
+
+    const deal = await Deal.findById(payment.deal);
+    if (deal) {
+      deal.paymentStatus = paymentStatus;
+      if (paymentStatus === 'paid') {
+        deal.status = 'completed';
+        deal.transactionId = `paymob_txn_${transactionId}`;
+      }
+      await deal.save();
+    }
+
+    // Trigger Notification for success/failure
+    if (paymentStatus === 'paid') {
+      await createNotification({
+        recipient: payment.buyer,
+        sender: payment.seller,
+        type: 'payment_successful',
+        title: 'Paymob Payment Successful',
+        description: `Your payment of $${payment.amount.toFixed(2)} via Paymob was securely processed and held in escrow.`,
+        entityType: 'Deal',
+        entityId: payment.deal,
+        actionUrl: `/payment/success/paymob_txn_${transactionId}`,
+        priority: 'high'
+      });
+
+      await createNotification({
+        recipient: payment.seller,
+        sender: payment.buyer,
+        type: 'payment_successful',
+        title: 'Payment Received',
+        description: `Escrow payment of $${payment.amount.toFixed(2)} has been secured. Please schedule material dispatch.`,
+        entityType: 'Deal',
+        entityId: payment.deal,
+        actionUrl: `/dashboard/chat?dealId=${payment.deal}`,
+        priority: 'high'
+      });
+
+      // Emit real-time Socket.IO notification
+      const io = req.app.get('io');
+      if (io && payment.deal) {
+        io.to(payment.deal.toString()).emit('receiveMessage', {
+          _id: `sys-${Date.now()}`,
+          deal: payment.deal,
+          sender: null,
+          text: `System: Paymob Escrow Payment of $${payment.amount.toFixed(2)} was successfully processed. Status is completed.`,
+          createdAt: new Date().toISOString()
+        });
+      }
+    } else {
+      await createNotification({
+        recipient: payment.buyer,
+        sender: payment.seller,
+        type: 'payment_failed',
+        title: 'Paymob Payment Failed',
+        description: `Secured Paymob payment of $${payment.amount.toFixed(2)} has failed. Please verify your billing details.`,
+        entityType: 'Deal',
+        entityId: payment.deal,
+        actionUrl: `/payment/${payment.deal}`,
+        priority: 'high'
+      });
+    }
+
+    res.status(200).json({ success: true, message: 'Webhook processed successfully.', paymentStatus });
+
+  } catch (error) {
+    console.error('Paymob Webhook Error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error processing webhook.' });
+  }
+};
+

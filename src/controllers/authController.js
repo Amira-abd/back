@@ -139,7 +139,42 @@ export const login = async (req, res) => {
     let user = null;
 
     if (token) {
-        // ... منطق جوجل
+      try {
+        const ticket = await client.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
+        const payload = ticket.getPayload();
+        const google_id = payload.sub;
+        const email = payload.email.toLowerCase();
+
+        user = await User.findOne({ $or: [{ google_id }, { email }] });
+        if (!user) {
+          user = new User({
+            full_name: payload.name || 'Google User',
+            email: email,
+            google_id: google_id,
+            role: 'Buyer',
+            phone: 'N/A',
+            city: 'N/A',
+            address: 'N/A',
+            is_verified: true,
+            verification_status: 'approved'
+          });
+          await user.save();
+
+          const newVerification = new Verification({
+            user: user._id,
+            nationalIdNumber: 'N/A',
+            idImage: 'N/A',
+            reviewStatus: 'approved',
+            submittedAt: new Date()
+          });
+          await newVerification.save();
+        } else if (!user.google_id) {
+          user.google_id = google_id;
+          await user.save();
+        }
+      } catch (err) {
+        return res.status(401).json({ success: false, message: 'رمز جوجل غير صالح', error: err.message });
+      }
     } else {
         if (!inputEmail || !password) return res.status(400).json({ success: false, message: 'البيانات ناقصة' });
         user = await User.findOne({ email: inputEmail.toLowerCase() });
@@ -169,53 +204,82 @@ export const updateProfile = async (req, res) => {
 };
 
 export const forgotPassword = async (req, res) => {
-  const { email } = req.body;
-  const user = await User.findOne({ email });
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+    
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  if (!user) return res.status(404).json({ message: "المستخدم غير موجود" });
+    // Generate secure random 6-digit code
+    const resetCode = crypto.randomInt(100000, 999999).toString();
+    
+    // Hash the token using sha256 before saving to database
+    const hashedToken = crypto.createHash('sha256').update(resetCode).digest('hex');
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+    await user.save();
 
-  // إنشاء كود عشوائي
-  const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-  
-  // حفظ الكود في قاعدة البيانات مع وقت انتهاء (10 دقائق)
-  user.resetPasswordToken = resetCode;
-  user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
-  await user.save();
+    // Check if nodemailer settings are present
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+      });
 
-  // إرسال الإيميل
-  const transporter = nodemailer.createTransport({
-    service: 'gmail', // أو استخدمي خدمة SMTP الخاصة بكِ
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-  });
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: user.email,
+        subject: "EcoLink Password Recovery Code",
+        text: `Your password recovery verification code is: ${resetCode}\nThis code is valid for 10 minutes.`
+      });
+    } else {
+      console.warn(`[Nodemailer Simulation] Password recovery requested for ${email}. Reset code is: ${resetCode}`);
+    }
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
-    to: user.email,
-    subject: "كود إعادة تعيين كلمة المرور",
-    text: `كود التحقق الخاص بك هو: ${resetCode}`
-  });
-
-  res.status(200).json({ message: "تم إرسال الكود إلى بريدك الإلكتروني" });
+    res.status(200).json({ message: "Verification code sent to your email!" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to process forgot password request", error: error.message });
+  }
 };
 
-// 2. إعادة تعيين كلمة المرور
 export const resetPassword = async (req, res) => {
-  const { email, code, newPassword } = req.body;
-  const user = await User.findOne({ 
-    email, 
-    resetPasswordToken: code, 
-    resetPasswordExpire: { $gt: Date.now() } 
-  });
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
 
-  if (!user) return res.status(400).json({ message: "الكود غير صحيح أو انتهت صلاحيته" });
+    // Hash the incoming code to look it up in DB
+    const hashedCode = crypto.createHash('sha256').update(code).digest('hex');
+    const user = await User.findOne({ 
+      email: email.toLowerCase(), 
+      resetPasswordToken: hashedCode, 
+      resetPasswordExpire: { $gt: Date.now() } 
+    });
 
-  const salt = await bcrypt.genSalt(10);
-  user.password_hash = await bcrypt.hash(newPassword, salt);
-  user.resetPasswordToken = undefined;
-  user.resetPasswordExpire = undefined;
-  await user.save();
+    if (!user) return res.status(400).json({ message: "Invalid code or code has expired" });
 
-  res.status(200).json({ message: "تم تغيير كلمة المرور بنجاح" });
+    // Password validation regex
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({ 
+        message: 'Password must be at least 8 characters long and contain both letters and numbers.' 
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password_hash = await bcrypt.hash(newPassword, salt);
+    
+    // Invalidate token to prevent reuse
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    res.status(200).json({ message: "Password updated successfully!" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to reset password", error: error.message });
+  }
 };
 
 export const submitVerification = async (req, res) => {

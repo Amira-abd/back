@@ -11,6 +11,11 @@ const categorySchema = new mongoose.Schema({
     type: String, 
     trim: true 
   },
+  status: {
+    type: String,
+    enum: ['active', 'inactive'],
+    default: 'active'
+  },
 }, { 
   timestamps: true // ده هيعمل لكِ حقول created_at و updated_at تلقائياً
 });

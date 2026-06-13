@@ -3,9 +3,9 @@ import Category from '../models/Category.js';
 // Create a new category
 const createCategory = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, status } = req.body;
 
-    const category = await Category.create({ name, description });
+    const category = await Category.create({ name, description, status });
 
     res.status(201).json({ message: 'Category created successfully', data: category });
   } catch (err) {
@@ -44,11 +44,11 @@ const getCategoryById = async (req, res) => {
 // Update category
 const updateCategory = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, status } = req.body;
 
     const category = await Category.findByIdAndUpdate(
       req.params.id,
-      { name, description },
+      { name, description, status },
       { new: true, runValidators: true }
     );
 
