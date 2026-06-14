@@ -1,0 +1,42 @@
+[UPDATE AVATAR ERROR] 2026-06-13T11:22:43.964Z - ValidationError: User validation failed: verification_status: `verified` is not a valid enum value for path `verification_status`.
+    at model.validate (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\document.js:2864:36)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async model.$__save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:393:7)
+    at async model.save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:667:5)
+    at async updateAvatar (file:///C:/Users/Admin/Downloads/EcoLink2/back/src/controllers/userController.js:73:5)
+[UPDATE AVATAR ERROR] 2026-06-13T11:23:07.466Z - ValidationError: User validation failed: verification_status: `verified` is not a valid enum value for path `verification_status`.
+    at model.validate (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\document.js:2864:36)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async model.$__save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:393:7)
+    at async model.save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:667:5)
+    at async updateAvatar (file:///C:/Users/Admin/Downloads/EcoLink2/back/src/controllers/userController.js:73:5)
+[UPDATE AVATAR ERROR] 2026-06-13T11:23:15.797Z - ValidationError: User validation failed: verification_status: `verified` is not a valid enum value for path `verification_status`.
+    at model.validate (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\document.js:2864:36)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async model.$__save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:393:7)
+    at async model.save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:667:5)
+    at async updateAvatar (file:///C:/Users/Admin/Downloads/EcoLink2/back/src/controllers/userController.js:73:5)
+[UPDATE AVATAR ERROR] 2026-06-13T11:24:33.784Z - ValidationError: User validation failed: verification_status: `verified` is not a valid enum value for path `verification_status`.
+    at model.validate (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\document.js:2864:36)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async model.$__save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:393:7)
+    at async model.save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:667:5)
+    at async updateAvatar (file:///C:/Users/Admin/Downloads/EcoLink2/back/src/controllers/userController.js:73:5)
+[UPDATE AVATAR ERROR] 2026-06-13T11:33:43.879Z - ValidationError: User validation failed: verification_status: `verified` is not a valid enum value for path `verification_status`.
+    at model.validate (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\document.js:2864:36)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async model.$__save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:393:7)
+    at async model.save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:667:5)
+    at async updateAvatar (file:///C:/Users/Admin/Downloads/EcoLink2/back/src/controllers/userController.js:73:5)
+[UPDATE AVATAR ERROR] 2026-06-14T07:01:46.502Z - ValidationError: User validation failed: verification_status: `verified` is not a valid enum value for path `verification_status`.
+    at model.validate (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\document.js:2864:36)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async model.$__save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:393:7)
+    at async model.save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:667:5)
+    at async updateAvatar (file:///C:/Users/Admin/Downloads/EcoLink2/back/src/controllers/userController.js:73:5)
+[UPDATE AVATAR ERROR] 2026-06-14T07:02:00.288Z - ValidationError: User validation failed: verification_status: `verified` is not a valid enum value for path `verification_status`.
+    at model.validate (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\document.js:2864:36)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async model.$__save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:393:7)
+    at async model.save (C:\Users\Admin\Downloads\EcoLink2\back\node_modules\mongoose\lib\model.js:667:5)
+    at async updateAvatar (file:///C:/Users/Admin/Downloads/EcoLink2/back/src/controllers/userController.js:73:5)

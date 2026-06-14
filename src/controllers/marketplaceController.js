@@ -1,6 +1,7 @@
 import Product from '../models/Product.js';
 import ProductImage from '../models/ProductImage.js';
 import User from '../models/User.js';
+import Category from '../models/Category.js';
 import Notification from '../models/Notification.js';
 import { createNotification } from '../services/notificationService.js';
 
@@ -164,22 +165,37 @@ const createProduct = async (req, res) => {
     // Notify relevant B2B buyer users about new surplus if active
     if (status !== 'inactive') {
       try {
+        const category = await Category.findById(category_id);
+        const categoryName = category ? category.name.toLowerCase() : '';
+        const titleWords = title.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+
         const buyers = await User.find({
           role: { $in: ['Buyer', 'Both'] },
           _id: { $ne: req.user._id }
         }).lean();
 
         for (const buyer of buyers) {
+          // Check if buyer has matching interests or preferred category
+          const prefersCategory = buyer.preferredCategories && buyer.preferredCategories.some(c => c.toString() === category_id.toString());
+          const hasMatchingInterest = buyer.savedInterests && buyer.savedInterests.some(interest => {
+            const cleanInterest = interest.toLowerCase().trim();
+            return categoryName.includes(cleanInterest) || titleWords.some(w => w.includes(cleanInterest));
+          });
+
+          const isMatched = prefersCategory || hasMatchingInterest;
+
           await createNotification({
             recipient: buyer._id,
             sender: req.user._id,
-            type: 'surplus',
-            title: 'New Surplus Material',
-            description: `A new surplus material "${product.title}" has been added to the marketplace.`,
+            type: isMatched ? 'request_matched' : 'surplus',
+            title: isMatched ? 'New Matching Surplus Available' : 'New Surplus Material',
+            description: isMatched 
+              ? `A newly listed surplus "${product.title}" matches your interests.` 
+              : `A new surplus material "${product.title}" has been added to the marketplace.`,
             entityType: 'Product',
             entityId: product._id,
             actionUrl: `/marketplace/${product._id}`,
-            priority: 'low'
+            priority: isMatched ? 'high' : 'low'
           });
         }
       } catch (err) {

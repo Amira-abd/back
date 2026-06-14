@@ -40,6 +40,20 @@ const dealSchema = new mongoose.Schema({
   transactionId: {
     type: String,
   },
+  escrowStatus: {
+    type: String,
+    enum: [
+      "Pending",
+      "Paid_to_Escrow",
+      "Shipped",
+      "Delivered_and_Verified",
+      "Released_to_Supplier",
+    ],
+    default: "Pending",
+  },
+  contractUrl: {
+    type: String,
+  },
 }, {
   timestamps: true,
 });

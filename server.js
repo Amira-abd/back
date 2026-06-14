@@ -18,11 +18,14 @@ import { initNotificationService, createNotification } from './src/services/noti
 // فك التشفير عن المسارات لو قمت بإنشاء ملفاتها مستقبلاً
 import inventoryRoutes from './src/routes/inventoryRoutes.js';
 import dealRoutes from './src/routes/dealRoutes.js';
+import pricingRoutes from './src/routes/pricingRoutes.js';
+import logisticsRoutes from './src/routes/logisticsRoutes.js';
 
 // CONFIG
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 import paymentRoutes from './src/routes/paymentRoutes.js';
+import userRoutes from './src/routes/userRoutes.js';
 
 // CONNECT DATABASE
 connectDB().then(async () => {
@@ -31,6 +34,8 @@ connectDB().then(async () => {
     const RfqOffer = (await import('./src/models/RfqOffer.js')).default;
     const Deal = (await import('./src/models/Deal.js')).default;
     const Order = (await import('./src/models/Order.js')).default;
+    const User = (await import('./src/models/User.js')).default;
+    const Verification = (await import('./src/models/userVerification.js')).default;
 
     const productUpdate = await Product.updateMany({ price: { $lte: 0 } }, { price: 1.00 });
     const rfqUpdate = await RfqOffer.updateMany({ price: { $lte: 0 } }, { price: 1.00 });
@@ -45,8 +50,45 @@ connectDB().then(async () => {
         orders: orderUpdate.modifiedCount
       });
     }
+
+    // Audit and migrate local/localhost user verification image paths
+    const localOrLocalhostUsers = await User.find({
+      $or: [
+        { id_card_path: { $regex: /^(uploads|http:\/\/localhost)/i } },
+        { national_id_doc: { $regex: /^(uploads|http:\/\/localhost)/i } }
+      ]
+    });
+
+    if (localOrLocalhostUsers.length > 0) {
+      console.log(`🔍 Found ${localOrLocalhostUsers.length} users with local/localhost ID image paths. Migrating to public fallbacks...`);
+      for (const u of localOrLocalhostUsers) {
+        const secureFallback = "https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?w=1000&auto=format&fit=crop";
+        u.id_card_path = secureFallback;
+        u.national_id_doc = secureFallback;
+        if (u.profile_image && (u.profile_image.startsWith('uploads') || u.profile_image.includes('localhost'))) {
+          u.profile_image = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=600&auto=format&fit=crop";
+        }
+        await u.save();
+      }
+      console.log('✅ User document paths updated in DB.');
+    }
+
+    // Audit and migrate verification document details
+    const localOrLocalhostVerifications = await Verification.find({
+      idImage: { $regex: /^(uploads|http:\/\/localhost|N\/A)/i }
+    });
+
+    if (localOrLocalhostVerifications.length > 0) {
+      console.log(`🔍 Found ${localOrLocalhostVerifications.length} verifications with local/localhost/invalid image paths. Migrating to public fallbacks...`);
+      for (const v of localOrLocalhostVerifications) {
+        v.idImage = "https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?w=1000&auto=format&fit=crop";
+        await v.save();
+      }
+      console.log('✅ Verification document paths updated in DB.');
+    }
+
   } catch (err) {
-    console.error('⚠️ Database pricing audit warning:', err.message);
+    console.error('⚠️ Database audit/migration warning:', err.message);
   }
 });
 
@@ -78,10 +120,14 @@ app.use("/api", categoryRoutes);
 app.use("/api", clientRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/users", userRoutes);
+app.use("/users", userRoutes);
 
 // 5. إذا كانت هذه الملفات غير موجودة بعد، اترك هذه الأسطر ممسوحة (Commented) لحين إنشائها:
 app.use("/api/admin/inventory", inventoryRoutes);
 app.use("/api/deals", dealRoutes);
+app.use("/api/pricing", pricingRoutes);
+app.use("/api/logistics", logisticsRoutes);
 
 // TEST ROUTE
 app.get("/", (req, res) => {

@@ -4,6 +4,7 @@ import Deal from '../models/Deal.js';
 import User from '../models/User.js';
 import { createNotification } from '../services/notificationService.js';
 import { generatePaymobCheckout } from '../services/paymentService.js';
+import { calculateAllEstimates } from '../services/logistics/index.js';
 
 // Helper to make Stripe API requests directly (avoiding the need for Stripe npm package)
 const stripeRequest = async (method, path, data = null) => {
@@ -50,7 +51,7 @@ const stripeRequest = async (method, path, data = null) => {
 // Create Stripe Payment Intent and track in database
 export const createPaymentIntent = async (req, res) => {
   try {
-    const { dealId } = req.body;
+    const { dealId, shippingProvider, weight, volume, distance } = req.body;
     if (!dealId) {
       return res.status(400).json({ success: false, message: 'Deal ID is required.' });
     }
@@ -66,12 +67,21 @@ export const createPaymentIntent = async (req, res) => {
       return res.status(400).json({ success: false, message: 'This deal has already been paid.' });
     }
 
-    // Calculate pricing: subtotal + 2% platform fee
-    const itemPrice = deal.offeredPrice || 0;
+    // Calculate pricing: subtotal + shipping cost + 2% platform fee
+    const itemPrice = deal.offeredPrice || deal.product?.price || 0;
     const quantity = deal.quantity || 1;
     const subtotal = itemPrice * quantity;
-    const platformFee = subtotal * 0.02;
-    const finalAmount = subtotal + platformFee;
+
+    let shippingCost = 0;
+    if (shippingProvider && weight !== undefined && volume !== undefined && distance !== undefined) {
+      const estimates = calculateAllEstimates(parseFloat(weight), parseFloat(volume), parseFloat(distance));
+      if (estimates && estimates[shippingProvider]) {
+        shippingCost = estimates[shippingProvider].cost;
+      }
+    }
+
+    const platformFee = (subtotal + shippingCost) * 0.02;
+    const finalAmount = subtotal + shippingCost + platformFee;
 
     if (finalAmount <= 0) {
       return res.status(400).json({ success: false, message: 'Payment amount must be greater than zero.' });
@@ -115,11 +125,21 @@ export const createPaymentIntent = async (req, res) => {
         amount: finalAmount,
         currency: 'usd',
         paymentIntentId,
-        status: 'pending'
+        status: 'pending',
+        shippingProvider,
+        shippingCost,
+        shippingWeight: weight ? parseFloat(weight) : undefined,
+        shippingVolume: volume ? parseFloat(volume) : undefined,
+        shippingDistance: distance ? parseFloat(distance) : undefined
       });
     } else {
       payment.amount = finalAmount;
       payment.paymentIntentId = paymentIntentId;
+      payment.shippingProvider = shippingProvider;
+      payment.shippingCost = shippingCost;
+      payment.shippingWeight = weight ? parseFloat(weight) : undefined;
+      payment.shippingVolume = volume ? parseFloat(volume) : undefined;
+      payment.shippingDistance = distance ? parseFloat(distance) : undefined;
     }
     await payment.save();
 
@@ -189,13 +209,16 @@ export const confirmPayment = async (req, res) => {
     }
 
     payment.status = paymentStatus;
+    if (paymentStatus === 'paid') {
+      payment.escrowStatus = 'Paid_to_Escrow';
+    }
     await payment.save();
 
     const deal = await Deal.findById(payment.deal);
     if (deal) {
       deal.paymentStatus = paymentStatus;
       if (paymentStatus === 'paid') {
-        deal.status = 'completed';
+        deal.escrowStatus = 'Paid_to_Escrow';
         deal.transactionId = paymentIntentId;
       }
       await deal.save();
@@ -234,7 +257,7 @@ export const confirmPayment = async (req, res) => {
           _id: `sys-${Date.now()}`,
           deal: payment.deal,
           sender: null,
-          text: `System: Secure Escrow Payment of $${payment.amount.toFixed(2)} was successfully processed. Status is now completed.`,
+          text: `System: Secure Escrow Payment of $${payment.amount.toFixed(2)} was successfully processed. Escrow Status: Paid to Escrow.`,
           createdAt: new Date().toISOString()
         });
       }
@@ -332,7 +355,7 @@ export const updatePaymentStatus = async (req, res) => {
 // Create Paymob checkout and key
 export const createPaymobKey = async (req, res) => {
   try {
-    const { dealId } = req.body;
+    const { dealId, shippingProvider, weight, volume, distance } = req.body;
     if (!dealId) {
       return res.status(400).json({ success: false, message: 'Deal ID is required.' });
     }
@@ -348,12 +371,21 @@ export const createPaymobKey = async (req, res) => {
       return res.status(400).json({ success: false, message: 'This deal has already been paid.' });
     }
 
-    // Calculate total pricing
-    const itemPrice = deal.offeredPrice || 0;
+    // Calculate total pricing: subtotal + shipping cost + 2% platform fee
+    const itemPrice = deal.offeredPrice || deal.product?.price || 0;
     const quantity = deal.quantity || 1;
     const subtotal = itemPrice * quantity;
-    const platformFee = subtotal * 0.02;
-    const finalAmount = subtotal + platformFee;
+
+    let shippingCost = 0;
+    if (shippingProvider && weight !== undefined && volume !== undefined && distance !== undefined) {
+      const estimates = calculateAllEstimates(parseFloat(weight), parseFloat(volume), parseFloat(distance));
+      if (estimates && estimates[shippingProvider]) {
+        shippingCost = estimates[shippingProvider].cost;
+      }
+    }
+
+    const platformFee = (subtotal + shippingCost) * 0.02;
+    const finalAmount = subtotal + shippingCost + platformFee;
 
     if (finalAmount <= 0) {
       return res.status(400).json({ success: false, message: 'Payment amount must be greater than zero.' });
@@ -384,11 +416,21 @@ export const createPaymobKey = async (req, res) => {
         amount: finalAmount,
         currency: 'usd',
         paymentIntentId: uniquePaymentIntentId,
-        status: 'pending'
+        status: 'pending',
+        shippingProvider,
+        shippingCost,
+        shippingWeight: weight ? parseFloat(weight) : undefined,
+        shippingVolume: volume ? parseFloat(volume) : undefined,
+        shippingDistance: distance ? parseFloat(distance) : undefined
       });
     } else {
       payment.amount = finalAmount;
       payment.paymentIntentId = uniquePaymentIntentId;
+      payment.shippingProvider = shippingProvider;
+      payment.shippingCost = shippingCost;
+      payment.shippingWeight = weight ? parseFloat(weight) : undefined;
+      payment.shippingVolume = volume ? parseFloat(volume) : undefined;
+      payment.shippingDistance = distance ? parseFloat(distance) : undefined;
     }
     await payment.save();
 
@@ -452,6 +494,9 @@ export const handlePaymobWebhook = async (req, res) => {
 
     const paymentStatus = isSuccess ? 'paid' : 'failed';
     payment.status = paymentStatus;
+    if (paymentStatus === 'paid') {
+      payment.escrowStatus = 'Paid_to_Escrow';
+    }
     if (transactionId) {
       payment.paymentIntentId = `paymob_txn_${transactionId}`;
     }
@@ -461,7 +506,7 @@ export const handlePaymobWebhook = async (req, res) => {
     if (deal) {
       deal.paymentStatus = paymentStatus;
       if (paymentStatus === 'paid') {
-        deal.status = 'completed';
+        deal.escrowStatus = 'Paid_to_Escrow';
         deal.transactionId = `paymob_txn_${transactionId}`;
       }
       await deal.save();
@@ -500,7 +545,7 @@ export const handlePaymobWebhook = async (req, res) => {
           _id: `sys-${Date.now()}`,
           deal: payment.deal,
           sender: null,
-          text: `System: Paymob Escrow Payment of $${payment.amount.toFixed(2)} was successfully processed. Status is completed.`,
+          text: `System: Paymob Escrow Payment of $${payment.amount.toFixed(2)} was successfully processed. Escrow Status: Paid to Escrow.`,
           createdAt: new Date().toISOString()
         });
       }

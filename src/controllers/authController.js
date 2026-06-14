@@ -5,6 +5,7 @@ import Verification from '../models/userVerification.js';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import { uploadBufferToCloudinary } from '../services/cloudinaryService.js';
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -37,7 +38,9 @@ export const signup = async (req, res) => {
       return res.status(400).json({ success: false, message: "Only one National ID image is allowed. Multiple uploads are rejected." });
     }
 
-    const nationalIdDocPath = files.nationalIdDoc ? files.nationalIdDoc[0].path : files.idFile[0].path;
+    const nationalIdFile = files.nationalIdDoc ? files.nationalIdDoc[0] : files.idFile[0];
+    const uploadResult = await uploadBufferToCloudinary(nationalIdFile.buffer, 'ecolink/verifications');
+    const nationalIdDocPath = uploadResult.secure_url;
     const companyRegisterDocPath = null;
     const taxCertificateDocPath = null;
     const profileImagePath = null;
@@ -298,10 +301,27 @@ export const submitVerification = async (req, res) => {
       return res.status(400).json({ success: false, message: "Only one National ID image is allowed. Multiple uploads are rejected." });
     }
 
-    const nationalIdDocPath = files.nationalIdDoc ? files.nationalIdDoc[0].path : files.idFile[0].path;
-    const companyRegisterDocPath = null;
-    const taxCertificateDocPath = null;
-    const profileImagePath = null;
+    const nationalIdFile = files.nationalIdDoc ? files.nationalIdDoc[0] : files.idFile[0];
+    const nationalIdUpload = await uploadBufferToCloudinary(nationalIdFile.buffer, 'ecolink/verifications');
+    const nationalIdDocPath = nationalIdUpload.secure_url;
+
+    let companyRegisterDocPath = null;
+    if (files.companyRegisterDoc && files.companyRegisterDoc.length > 0) {
+      const result = await uploadBufferToCloudinary(files.companyRegisterDoc[0].buffer, 'ecolink/verifications');
+      companyRegisterDocPath = result.secure_url;
+    }
+
+    let taxCertificateDocPath = null;
+    if (files.taxCertificateDoc && files.taxCertificateDoc.length > 0) {
+      const result = await uploadBufferToCloudinary(files.taxCertificateDoc[0].buffer, 'ecolink/verifications');
+      taxCertificateDocPath = result.secure_url;
+    }
+
+    let profileImagePath = null;
+    if (files.profileImage && files.profileImage.length > 0) {
+      const result = await uploadBufferToCloudinary(files.profileImage[0].buffer, 'ecolink/avatars');
+      profileImagePath = result.secure_url;
+    }
 
     const user = await User.findById(req.user.id);
     if (!user) {

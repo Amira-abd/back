@@ -45,6 +45,29 @@ const paymentSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'processing', 'paid', 'failed', 'refunded'],
     default: 'pending'
+  },
+  escrowStatus: {
+    type: String,
+    enum: ['Pending', 'Paid_to_Escrow', 'Shipped', 'Delivered_and_Verified', 'Released_to_Supplier'],
+    default: 'Pending'
+  },
+  releasedAt: {
+    type: Date
+  },
+  shippingProvider: {
+    type: String
+  },
+  shippingCost: {
+    type: Number
+  },
+  shippingWeight: {
+    type: Number
+  },
+  shippingVolume: {
+    type: Number
+  },
+  shippingDistance: {
+    type: Number
   }
 }, { 
   timestamps: true 

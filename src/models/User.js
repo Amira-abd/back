@@ -14,6 +14,8 @@ const userSchema = new mongoose.Schema({
   company_register_doc: { type: String, required: false },
   tax_certificate_doc: { type: String, required: false },
   profile_image: { type: String, required: false },
+  avatar: { type: String, required: false },
+  avatarPublicId: { type: String, required: false },
   rejection_reason: { type: String, required: false },
   
   is_verified: { type: Boolean, default: false },
@@ -21,6 +23,8 @@ const userSchema = new mongoose.Schema({
   status: { type: String, enum: ['active', 'inactive', 'suspended'], default: 'active' },
   city: { type: String, required: false, trim: true },
   address: { type: String, required: false, trim: true },
+  savedInterests: { type: [String], default: [] },
+  preferredCategories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
   resetPasswordToken: { type: String, required: false },
   resetPasswordExpire: { type: Date, required: false }
 }, { 
