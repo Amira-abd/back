@@ -30,12 +30,12 @@ export const signup = async (req, res) => {
 
     const hasNationalId = files.nationalIdDoc || files.idFile;
     if (!hasNationalId) {
-      return res.status(400).json({ success: false, message: "National ID image is required." });
+      return res.status(400).json({ success: false, message: req.t ? req.t("auth.signup.idRequired") : "National ID image is required." });
     }
 
     const extraFileKeys = fileKeys.filter(key => key !== 'nationalIdDoc' && key !== 'idFile');
     if (extraFileKeys.length > 0 || (files.nationalIdDoc && files.nationalIdDoc.length > 1) || (files.idFile && files.idFile.length > 1)) {
-      return res.status(400).json({ success: false, message: "Only one National ID image is allowed. Multiple uploads are rejected." });
+      return res.status(400).json({ success: false, message: req.t ? req.t("auth.signup.onlyOneIdAllowed") : "Only one National ID image is allowed. Multiple uploads are rejected." });
     }
 
     const nationalIdFile = files.nationalIdDoc ? files.nationalIdDoc[0] : files.idFile[0];
@@ -46,7 +46,7 @@ export const signup = async (req, res) => {
     const profileImagePath = null;
 
     if (role === 'Admin') {
-      return res.status(403).json({ success: false, message: 'غير مسموح بإنشاء حسابات إدارة.' });
+      return res.status(403).json({ success: false, message: req.t ? req.t("auth.signup.adminCreationDenied") : 'غير مسموح بإنشاء حسابات إدارة.' });
     }
 
     if (token) {
@@ -57,7 +57,7 @@ export const signup = async (req, res) => {
       full_name = payload.name;
     } else {
       if (!email || !password || !full_name) {
-        return res.status(400).json({ success: false, message: 'يرجى إكمال البيانات المطلوبة.' });
+        return res.status(400).json({ success: false, message: req.t ? req.t("auth.signup.missingFields") : 'يرجى إكمال البيانات المطلوبة.' });
       }
 
       // شرط كلمة المرور: 8 خانات، تشمل حروفاً وأرقاماً
@@ -65,7 +65,7 @@ export const signup = async (req, res) => {
       if (!passwordRegex.test(password)) {
         return res.status(400).json({ 
           success: false, 
-          message: 'كلمة المرور ضعيفة. يجب أن تتكون من 8 خانات على الأقل وتتضمن حروفاً وأرقاماً.' 
+          message: req.t ? req.t("auth.signup.weakPassword") : 'كلمة المرور ضعيفة. يجب أن تتكون من 8 خانات على الأقل وتتضمن حروفاً وأرقاماً.' 
         });
       }
 
@@ -75,7 +75,7 @@ export const signup = async (req, res) => {
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: 'عذراً، هذا البريد الإلكتروني مسجل مسبقاً.' });
+      return res.status(400).json({ success: false, message: req.t ? req.t("auth.signup.emailExists") : 'عذراً، هذا البريد الإلكتروني مسجل مسبقاً.' });
     }
 
     const newUser = new User({
@@ -114,7 +114,7 @@ export const signup = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'تم إنشاء الحساب بنجاح',
+      message: req.t ? req.t("auth.signup.success") : 'تم إنشاء الحساب بنجاح',
       token: ecoToken,
       user: { 
         id: newUser._id, 
@@ -132,7 +132,7 @@ export const signup = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: 'خطأ أثناء التسجيل', error: error.message });
+    res.status(500).json({ success: false, message: req.t ? req.t("auth.signup.error") : 'خطأ أثناء التسجيل', error: error.message });
   }
 };
 
@@ -176,22 +176,22 @@ export const login = async (req, res) => {
           await user.save();
         }
       } catch (err) {
-        return res.status(401).json({ success: false, message: 'رمز جوجل غير صالح', error: err.message });
+        return res.status(401).json({ success: false, message: req.t ? req.t("auth.login.invalidGoogleToken") : 'رمز جوجل غير صالح', error: err.message });
       }
     } else {
-        if (!inputEmail || !password) return res.status(400).json({ success: false, message: 'البيانات ناقصة' });
+        if (!inputEmail || !password) return res.status(400).json({ success: false, message: req.t ? req.t("login.errorRequiredFields") : 'البيانات ناقصة' });
         user = await User.findOne({ email: inputEmail.toLowerCase() });
         if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-            return res.status(401).json({ success: false, message: 'البريد أو كلمة المرور غير صحيحة' });
+            return res.status(401).json({ success: false, message: req.t ? req.t("auth.login.invalidCredentials") : 'البريد أو كلمة المرور غير صحيحة' });
         }
     }
 
-    if (user.status === 'suspended') return res.status(403).json({ success: false, message: 'الحساب محظور' });
+    if (user.status === 'suspended') return res.status(403).json({ success: false, message: req.t ? req.t("auth.login.suspended") : 'الحساب محظور' });
 
     const ecoToken = createEcoToken(user);
     res.status(200).json({ success: true, token: ecoToken, user });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'خطأ في تسجيل الدخول', error: error.message });
+    res.status(500).json({ success: false, message: req.t ? req.t("auth.login.error") : 'خطأ في تسجيل الدخول', error: error.message });
   }
 };
 
@@ -209,10 +209,10 @@ export const updateProfile = async (req, res) => {
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ message: "Email is required" });
+    if (!email) return res.status(400).json({ message: req.t ? req.t("auth.forgot.emailRequired") : "Email is required" });
     
     const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: req.t ? req.t("user.notFound") : "User not found" });
 
     // Generate secure random 6-digit code
     const resetCode = crypto.randomInt(100000, 999999).toString();
@@ -240,9 +240,9 @@ export const forgotPassword = async (req, res) => {
       console.warn(`[Nodemailer Simulation] Password recovery requested for ${email}. Reset code is: ${resetCode}`);
     }
 
-    res.status(200).json({ message: "Verification code sent to your email!" });
+    res.status(200).json({ message: req.t ? req.t("auth.forgot.codeSent") : "Verification code sent to your email!" });
   } catch (error) {
-    res.status(500).json({ message: "Failed to process forgot password request", error: error.message });
+    res.status(500).json({ message: req.t ? req.t("auth.forgot.error") : "Failed to process forgot password request", error: error.message });
   }
 };
 
@@ -250,7 +250,7 @@ export const resetPassword = async (req, res) => {
   try {
     const { email, code, newPassword } = req.body;
     if (!email || !code || !newPassword) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: req.t ? req.t("auth.reset.allFieldsRequired") : "All fields are required" });
     }
 
     // Hash the incoming code to look it up in DB
@@ -261,13 +261,13 @@ export const resetPassword = async (req, res) => {
       resetPasswordExpire: { $gt: Date.now() } 
     });
 
-    if (!user) return res.status(400).json({ message: "Invalid code or code has expired" });
+    if (!user) return res.status(400).json({ message: req.t ? req.t("auth.reset.invalidCode") : "Invalid code or code has expired" });
 
     // Password validation regex
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/;
     if (!passwordRegex.test(newPassword)) {
       return res.status(400).json({ 
-        message: 'Password must be at least 8 characters long and contain both letters and numbers.' 
+        message: req.t ? req.t("auth.reset.weakPassword") : 'Password must be at least 8 characters long and contain both letters and numbers.' 
       });
     }
 
@@ -279,7 +279,7 @@ export const resetPassword = async (req, res) => {
     user.resetPasswordExpire = undefined;
     await user.save();
 
-    res.status(200).json({ message: "Password updated successfully!" });
+    res.status(200).json({ message: req.t ? req.t("auth.reset.success") : "Password updated successfully!" });
   } catch (error) {
     res.status(500).json({ message: "Failed to reset password", error: error.message });
   }
@@ -292,13 +292,13 @@ export const submitVerification = async (req, res) => {
 
     const hasNationalId = files.nationalIdDoc || files.idFile;
     if (!hasNationalId) {
-      return res.status(400).json({ success: false, message: "National ID image is required." });
+      return res.status(400).json({ success: false, message: req.t ? req.t("auth.signup.idRequired") : "National ID image is required." });
     }
 
     const allowedKeys = ['nationalIdDoc', 'idFile', 'companyRegisterDoc', 'taxCertificateDoc', 'profileImage'];
     const extraFileKeys = fileKeys.filter(key => !allowedKeys.includes(key));
     if (extraFileKeys.length > 0 || (files.nationalIdDoc && files.nationalIdDoc.length > 1) || (files.idFile && files.idFile.length > 1)) {
-      return res.status(400).json({ success: false, message: "Only one National ID image is allowed. Multiple uploads are rejected." });
+      return res.status(400).json({ success: false, message: req.t ? req.t("auth.signup.onlyOneIdAllowed") : "Only one National ID image is allowed. Multiple uploads are rejected." });
     }
 
     const nationalIdFile = files.nationalIdDoc ? files.nationalIdDoc[0] : files.idFile[0];
@@ -325,7 +325,7 @@ export const submitVerification = async (req, res) => {
 
     const user = await User.findById(req.user.id);
     if (!user) {
-      return res.status(404).json({ success: false, message: "المستخدم غير موجود." });
+      return res.status(404).json({ success: false, message: req.t ? req.t("user.notFound") : "المستخدم غير موجود." });
     }
 
     if (nationalIdDocPath) {
@@ -365,7 +365,7 @@ export const submitVerification = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "تم تقديم طلب التحقق بنجاح.",
+      message: req.t ? req.t("auth.verification.submitted") : "تم تقديم طلب التحقق بنجاح.",
       user
     });
   } catch (error) {

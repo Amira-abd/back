@@ -4,6 +4,8 @@ import Notification from ".././models/Notification.js";
 import Payment from "../models/Payment.js";
 import { createNotification } from "../services/notificationService.js";
 import { generateContractPdf } from "../services/contractService.js";
+import axios from "axios";
+import PDFDocument from 'pdfkit';
 
 // GET ALL DEALS
 export const getAllDeals = async (req, res) => {
@@ -46,7 +48,14 @@ export const acceptDeal = async (req, res) => {
     let deal = await Deal.findById(req.params.id)
       .populate("buyer", "full_name email")
       .populate("seller", "full_name email")
-      .populate("product", "title price quantity unit description");
+      .populate({
+        path: "product",
+        select: "title price quantity unit description category_id",
+        populate: {
+          path: "category_id",
+          select: "name"
+        }
+      });
 
     if (!deal) {
       return res.status(404).json({ success: false, message: "Deal not found" });
@@ -483,6 +492,92 @@ export const releaseSupplierPayment = async (req, res) => {
 
     await releaseSupplierPaymentInternal(deal, req);
     res.status(200).json({ success: true, message: "Supplier payment released successfully.", deal });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// REGENERATE CONTRACT PDF
+export const regenerateContract = async (req, res) => {
+  try {
+    const deal = await Deal.findById(req.params.id)
+      .populate("buyer", "full_name email")
+      .populate("seller", "full_name email")
+      .populate({
+        path: "product",
+        select: "title price quantity unit description category_id",
+        populate: {
+          path: "category_id",
+          select: "name"
+        }
+      });
+
+    if (!deal) {
+      return res.status(404).json({ success: false, message: "Deal not found" });
+    }
+
+    const contractUrl = await generateContractPdf(deal);
+    deal.contractUrl = contractUrl;
+    await deal.save();
+
+    res.status(200).json({ success: true, contractUrl, deal });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// DOWNLOAD CONTRACT PDF
+export const downloadContract = async (req, res) => {
+  try {
+    const deal = await Deal.findById(req.params.id);
+    if (!deal || !deal.contractUrl) {
+      return res.status(404).json({ success: false, message: "Contract not found or not generated yet" });
+    }
+
+    try {
+      const response = await axios({
+        method: "get",
+        url: deal.contractUrl,
+        responseType: "stream",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "application/pdf,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        },
+        timeout: 6000
+      });
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename=contract-${deal._id}.pdf`);
+      response.data.pipe(res);
+    } catch (fetchError) {
+      console.warn(`[Backend] Failed to fetch contract URL (${deal.contractUrl}):`, fetchError.message);
+      
+      // Fallback: Generate a simple contract PDF on the fly so the download succeeds!
+      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename=contract-fallback-${deal._id}.pdf`);
+      doc.pipe(res);
+
+      doc.fillColor('#1B4332')
+         .fontSize(20)
+         .font('Helvetica-Bold')
+         .text('ECOLINK TRANSACTION CONTRACT (FALLBACK)', { align: 'center' });
+      doc.moveDown(1);
+      
+      doc.fillColor('#2A2F2B')
+         .fontSize(10)
+         .font('Helvetica')
+         .text(`Deal Reference ID: ${deal._id}`)
+         .text(`Status: ${deal.status}`)
+         .text(`Escrow Status: ${deal.escrowStatus || 'N/A'}`)
+         .text(`Offered Price: $${deal.offeredPrice || 0}`)
+         .text(`Quantity: ${deal.quantity || 1}`)
+         .moveDown(1)
+         .text('This is a dynamically generated fallback copy of your B2B contract agreement. The secure cloud-hosted PDF could not be retrieved at this time, but the transaction record remains active and valid.', { align: 'justify' });
+      
+      doc.end();
+    }
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

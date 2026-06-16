@@ -9,7 +9,9 @@ import {
   cancelDealPayment,
   updateEscrowStatus,
   confirmReceipt,
-  releaseSupplierPayment
+  releaseSupplierPayment,
+  regenerateContract,
+  downloadContract
 } from "../controllers/dealController.js";
 import { protect, requireVerifiedUser } from "../middlewares/authMiddleware.js";
 
@@ -44,5 +46,11 @@ router.post("/:id/confirm-receipt", protect, requireVerifiedUser, confirmReceipt
 
 // RELEASE PAYMENT (Admin manual fallback)
 router.post("/:id/release", protect, requireVerifiedUser, releaseSupplierPayment);
+
+// REGENERATE CONTRACT PDF
+router.post("/:id/contract/regenerate", protect, requireVerifiedUser, regenerateContract);
+
+// DOWNLOAD CONTRACT PDF
+router.get("/:id/contract/download", protect, requireVerifiedUser, downloadContract);
 
 export default router;

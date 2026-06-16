@@ -105,6 +105,7 @@ export const generateContractPdf = (deal) => {
       doc.moveDown(0.6);
 
       const matName = deal.product?.title || 'Custom Sourcing Material';
+      const categoryName = deal.product?.category_id?.name || 'N/A';
       const quantity = deal.quantity || 1;
       const unit = deal.product?.unit || 'units';
       const description = deal.product?.description || 'No additional description provided.';
@@ -115,6 +116,12 @@ export const generateContractPdf = (deal) => {
          .text('Material Name: ', { continued: true })
          .font('Helvetica')
          .text(matName);
+      doc.moveDown(0.3);
+
+      doc.font('Helvetica-Bold')
+         .text('Category: ', { continued: true })
+         .font('Helvetica')
+         .text(categoryName);
       doc.moveDown(0.3);
 
       doc.font('Helvetica-Bold')
@@ -147,13 +154,13 @@ export const generateContractPdf = (deal) => {
       doc.fontSize(9)
          .fillColor('#2C3E50')
          .font('Helvetica-Bold')
-         .text('Agreed Rate per Unit: ', { continued: true })
+         .text('Agreed Price: ', { continued: true })
          .font('Helvetica')
          .text(`$${unitPrice.toFixed(2)} USD`);
       doc.moveDown(0.3);
 
       doc.font('Helvetica-Bold')
-         .text('Total Subtotal: ', { continued: true })
+         .text('Total Amount: ', { continued: true })
          .font('Helvetica')
          .text(`$${subtotal.toFixed(2)} USD`);
       doc.moveDown(1.2);

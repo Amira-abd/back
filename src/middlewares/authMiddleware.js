@@ -39,7 +39,7 @@ export const protect = async (req, res, next) => { // ضفنا async هنا
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return res.status(401).json({ success: false, message: req.t ? req.t("auth.unauthorized") : "Unauthorized" });
     }
 
     const token = authHeader.split(" ")[1];
@@ -49,19 +49,19 @@ export const protect = async (req, res, next) => { // ضفنا async هنا
     const user = await User.findById(decoded.id).select("-password");
     
     if (!user) {
-      return res.status(401).json({ success: false, message: "User not found" });
+      return res.status(401).json({ success: false, message: req.t ? req.t("user.notFound") : "User not found" });
     }
 
     req.user = user; // دلوقت الـ req.user بقى فيه بيانات المستخدم كاملة
     next();
   } catch (error) {
-    return res.status(401).json({ success: false, message: "Invalid token" });
+    return res.status(401).json({ success: false, message: req.t ? req.t("auth.invalidToken") : "Invalid token" });
   }
 };
 
 export const requireVerifiedSeller = (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({ success: false, message: "Unauthorized" });
+    return res.status(401).json({ success: false, message: req.t ? req.t("auth.unauthorized") : "Unauthorized" });
   }
   const role = req.user.role?.toLowerCase();
   const isSellerRole = role === 'seller' || role === 'both';
@@ -70,7 +70,7 @@ export const requireVerifiedSeller = (req, res, next) => {
   if (!isSellerRole || !isVerified) {
     return res.status(403).json({
       success: false,
-      message: "Access denied. Only verified sellers can perform this action.",
+      message: req.t ? req.t("auth.verifiedSellersOnly") : "Access denied. Only verified sellers can perform this action.",
     });
   }
   next();
@@ -78,7 +78,7 @@ export const requireVerifiedSeller = (req, res, next) => {
 
 export const requireVerifiedBuyer = (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({ success: false, message: "Unauthorized" });
+    return res.status(401).json({ success: false, message: req.t ? req.t("auth.unauthorized") : "Unauthorized" });
   }
   const role = req.user.role?.toLowerCase();
   const isBuyerRole = role === 'buyer' || role === 'both';
@@ -87,7 +87,7 @@ export const requireVerifiedBuyer = (req, res, next) => {
   if (!isBuyerRole || !isVerified) {
     return res.status(403).json({
       success: false,
-      message: "Access denied. Only verified buyers can perform this action.",
+      message: req.t ? req.t("auth.verifiedBuyersOnly") : "Access denied. Only verified buyers can perform this action.",
     });
   }
   next();
@@ -95,14 +95,14 @@ export const requireVerifiedBuyer = (req, res, next) => {
 
 export const requireVerifiedUser = (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({ success: false, message: "Unauthorized" });
+    return res.status(401).json({ success: false, message: req.t ? req.t("auth.unauthorized") : "Unauthorized" });
   }
   const status = req.user.verification_status?.toLowerCase();
   const isVerified = status === 'approved' || status === 'verified';
   if (!isVerified) {
     return res.status(403).json({
       success: false,
-      message: "Your account must be verified before using marketplace features.",
+      message: req.t ? req.t("auth.verifiedUserRequired") : "Your account must be verified before using marketplace features.",
     });
   }
   next();

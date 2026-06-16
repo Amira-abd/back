@@ -1,7 +1,9 @@
 import User from '../models/User.js';
+import Verification from '../models/userVerification.js';
 import { uploadBufferToCloudinary, deleteFromCloudinary } from '../services/cloudinaryService.js';
 import path from 'path';
 import fs from 'fs';
+import mongoose from 'mongoose';
 
 /**
  * Get current user profile details
@@ -115,5 +117,54 @@ export const deleteAvatar = async (req, res) => {
       fs.appendFileSync('error.log', `[DELETE AVATAR ERROR] ${new Date().toISOString()} - ${err.stack}\n`);
     } catch (e) {}
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+/**
+ * Safe delete a user account by an administrator
+ */
+export const deleteUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // 1. Validate userId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: req.t ? req.t('user.invalidId') : 'Invalid User ID.'
+      });
+    }
+
+    // 2. Check if user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: req.t ? req.t('user.notFound') : 'User not found.'
+      });
+    }
+
+    // 3. Deletion of user and verification details
+    await User.findByIdAndDelete(userId);
+    await Verification.deleteMany({ user: userId });
+
+    // 4. Log deletion activity in audit.log
+    const logMsg = `[USER DELETION] Admin (ID: ${req.user._id}, Email: ${req.user.email}) deleted User: ${user.full_name} (ID: ${user._id}, Email: ${user.email}) at ${new Date().toISOString()}\n`;
+    try {
+      fs.appendFileSync('audit.log', logMsg);
+    } catch (e) {
+      console.error('Audit log write error:', e.message);
+    }
+    console.log(logMsg);
+
+    res.status(200).json({
+      success: true,
+      message: req.t ? req.t('admin.deleteUserSuccess') : 'User deleted successfully.'
+    });
+  } catch (error) {
+    try {
+      fs.appendFileSync('error.log', `[DELETE USER ERROR] ${new Date().toISOString()} - ${error.stack}\n`);
+    } catch (e) {}
+    res.status(500).json({ success: false, message: error.message });
   }
 };

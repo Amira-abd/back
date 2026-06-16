@@ -158,7 +158,12 @@ const createRfq = async (req, res) => {
 
     res.status(201).json({ message: 'RFQ created successfully', data: rfq });
   } catch (err) {
-    // لو فيه أي خطأ في الـ Validation (زي اللي ظهرلك)، هيظهر هنا
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ 
+        message: 'Validation failed', 
+        errors: Object.values(err.errors).map(e => e.message) 
+      });
+    }
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 };
@@ -186,6 +191,12 @@ const updateRfq = async (req, res) => {
     await rfq.save()
     res.json({ message: 'RFQ updated successfully', data: rfq })
   } catch (err) {
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ 
+        message: 'Validation failed', 
+        errors: Object.values(err.errors).map(e => e.message) 
+      });
+    }
     res.status(500).json({ message: 'Server error', error: err.message })
   }
 }
@@ -225,8 +236,31 @@ const getRfqOffers = async (req, res) => {
     const offers = await RfqOffer.find({ rfq_id: req.params.id })
       .populate('seller_id', 'full_name city verification_status')
       .sort({ created_at: -1 })
-      .lean()
-    res.json({ data: offers })
+      .lean();
+
+    const rfq = await Rfq.findById(req.params.id).select('buyer_id').lean();
+    if (!rfq) {
+      return res.status(404).json({ message: 'RFQ not found' });
+    }
+
+    const updatedOffers = await Promise.all(
+      offers.map(async (offer) => {
+        if (offer.status === 'accepted') {
+          const deal = await Deal.findOne({
+            buyer: rfq.buyer_id,
+            seller: offer.seller_id,
+            product: null
+          }).select('_id').lean();
+          return {
+            ...offer,
+            roomId: deal ? deal._id : null
+          };
+        }
+        return offer;
+      })
+    );
+
+    res.json({ data: updatedOffers })
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message })
   }
@@ -289,6 +323,12 @@ const sendOffer = async (req, res) => {
 
     res.status(201).json({ message: 'Offer sent successfully', data: offer })
   } catch (err) {
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ 
+        message: 'Validation failed', 
+        errors: Object.values(err.errors).map(e => e.message) 
+      });
+    }
     if (err.code === 11000) {
       return res.status(400).json({ message: 'You already sent an offer on this RFQ' })
     }
@@ -334,15 +374,25 @@ const acceptOffer = async (req, res) => {
       product: null
     });
 
+    let dealId;
     if (existingDeal) {
       existingDeal.status = 'accepted';
       await existingDeal.save();
+      dealId = existingDeal._id;
     } else {
-      await Deal.create({
+      const newDeal = await Deal.create({
         buyer: rfq.buyer_id,
         seller: offer.seller_id,
         status: 'accepted'
       });
+      dealId = newDeal._id;
+    }
+
+    // Emit Socket.io real-time event
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user_${rfq.buyer_id}`).emit('chat_room_created', { roomId: dealId, bidId: offer._id });
+      io.to(`user_${offer.seller_id}`).emit('chat_room_created', { roomId: dealId, bidId: offer._id });
     }
 
     await createNotification({
@@ -357,11 +407,11 @@ const acceptOffer = async (req, res) => {
       priority: 'high'
     });
 
-    res.json({ message: 'Offer accepted successfully', data: { offer } })
+    res.json({ message: 'Offer accepted successfully', data: { offer, roomId: dealId } })
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message })
   }
-}
+};
 
 const rejectOffer = async (req, res) => {
   try {

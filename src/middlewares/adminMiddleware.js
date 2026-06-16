@@ -5,7 +5,7 @@ const adminMiddleware = async (req, res, next) => {
     if (!req.user || req.user.role?.toLowerCase() !== "admin") {
       return res.status(403).json({
         success: false,
-        message: "Access denied. Admins only.",
+        message: req.t ? req.t("auth.adminsOnly") : "Access denied. Admins only.",
       });
     }
     next();
